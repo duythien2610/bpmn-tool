@@ -58,7 +58,7 @@ Hệ thống ghi nhận thanh toán và lưu chứng từ kế toán.`
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isLocal 
   ? 'http://localhost:3721/api' 
-  : 'https://LINK_RAILWAY_CUA_BAN_O_DAY/api'; // <-- BẠN CHÚ Ý: Sửa lại link Railway sau khi deploy backend nhé!
+  : 'https://bpmn-tool-production.up.railway.app/api';
 let serverAvailable = false;
 
 async function checkServer() {

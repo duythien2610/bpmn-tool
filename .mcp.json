@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "bpmn-studio": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/Users/33dod/OneDrive/Desktop/BA/BPMN/server/mcp-server.js"],
+      "env": {
+        "BPMN_STUDIO_URL": "http://localhost:3721"
+      }
+    }
+  }
+}

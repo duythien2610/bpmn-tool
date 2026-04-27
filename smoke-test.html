@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BPMN Smoke Test</title>
+</head>
+<body>
+  <pre id="result">Running...</pre>
+
+  <script>
+    const resultEl = document.getElementById('result');
+
+    function setResult(payload) {
+      resultEl.textContent = JSON.stringify(payload, null, 2);
+      console.log('SMOKE_RESULT ' + JSON.stringify(payload));
+      fetch('/api/smoke-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function waitFor(fn, timeout = 15000, step = 100) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const value = fn();
+        if (value) return value;
+        await wait(step);
+      }
+      throw new Error('Timeout while waiting for condition');
+    }
+
+    async function run() {
+      try {
+        const frame = document.createElement('iframe');
+        frame.src = '/designer.html';
+        frame.style.width = '1440px';
+        frame.style.height = '900px';
+        frame.style.border = '0';
+        document.body.appendChild(frame);
+
+        await new Promise((resolve, reject) => {
+          frame.onload = resolve;
+          frame.onerror = reject;
+        });
+
+        const win = frame.contentWindow;
+        const doc = frame.contentDocument;
+
+        await waitFor(() => doc.getElementById('process-title'));
+
+        doc.getElementById('process-title').value = 'Smoke Test BPMN';
+        doc.getElementById('process-desc').value = [
+          'Khách hàng gửi yêu cầu.',
+          'Hệ thống kiểm tra dữ liệu.',
+          'Nếu thiếu thông tin: Hệ thống yêu cầu bổ sung.',
+          'Nhân viên xử lý hồ sơ.',
+          'Hệ thống cập nhật trạng thái hoàn tất.'
+        ].join('\n');
+
+        doc.getElementById('btn-analyze').click();
+        await waitFor(() => !doc.getElementById('panel-step2').classList.contains('hidden'), 10000);
+
+        const rowCount = doc.querySelectorAll('#logic-tbody tr').length;
+
+        doc.getElementById('btn-generate').click();
+        await waitFor(() => !doc.getElementById('panel-step3').classList.contains('hidden'), 10000);
+        await wait(2500);
+
+        const canvasHost = doc.getElementById('bpmn-canvas');
+        const canvasBox = canvasHost.getBoundingClientRect();
+        const svg = canvasHost.querySelector('svg');
+        const djsContainer = canvasHost.querySelector('.djs-container');
+        const palette = canvasHost.querySelector('.djs-palette');
+        const assistant = doc.getElementById('diagram-assistant');
+        const assistantToggle = doc.getElementById('btn-toggle-assistant');
+        const loadingHidden = doc.getElementById('bpmn-loading').classList.contains('hidden');
+        const errorText = canvasHost.textContent.includes('Khong the hien thi preview') || canvasHost.textContent.includes('Không thể hiển thị preview');
+        const assistantVisible = !!assistant;
+        const xmlLength = doc.getElementById('xml-preview').textContent.length;
+
+        const assistantInitiallyCollapsed = assistant.classList.contains('collapsed');
+        assistantToggle.click();
+        await wait(150);
+        const assistantCollapsedAfterToggle = assistant.classList.contains('collapsed');
+        assistantToggle.click();
+        await wait(150);
+        const assistantCollapsedAfterSecondToggle = assistant.classList.contains('collapsed');
+
+        setResult({
+          ok: !!svg && !!djsContainer && loadingHidden && !errorText,
+          step2Rows: rowCount,
+          step3Visible: !doc.getElementById('panel-step3').classList.contains('hidden'),
+          loadingHidden,
+          hasDjsContainer: !!djsContainer,
+          hasSvg: !!svg,
+          hasPalette: !!palette,
+          assistantVisible,
+          assistantInitiallyCollapsed,
+          assistantCollapsedAfterToggle,
+          assistantCollapsedAfterSecondToggle,
+          xmlLength,
+          canvasWidth: Math.round(canvasBox.width),
+          canvasHeight: Math.round(canvasBox.height),
+          canvasTextSnippet: canvasHost.textContent.trim().slice(0, 180),
+          userAgent: win.navigator.userAgent
+        });
+      } catch (error) {
+        setResult({
+          ok: false,
+          error: error.message,
+          stack: error.stack
+        });
+      }
+    }
+
+    run();
+  </script>
+</body>
+</html>

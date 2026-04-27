@@ -1,0 +1,471 @@
+/**
+ * BPMN Studio — Designer v2
+ * White theme + Node.js backend integration
+ */
+
+/* ─── EXAMPLES ────────────────────────────────────────────────── */
+const EXAMPLES = {
+  purchase: {
+    title: 'Quy trình mua hàng online',
+    desc: `Khách hàng đặt hàng trên website.
+Nhân viên bán hàng nhận đơn hàng mới.
+Nhân viên bán hàng kiểm tra xem sản phẩm còn trong kho không.
+Nếu hết hàng: Gửi thông báo hủy đơn cho khách hàng.
+Nhân viên bán hàng đóng gói hàng hóa.
+Shipper nhận hàng và giao cho khách.
+Khách hàng xác nhận đã nhận được hàng.
+Hệ thống cập nhật trạng thái đơn hàng hoàn thành.`
+  },
+  pharmacy: {
+    title: 'Quy trình cấp phát thuốc nhà thuốc',
+    desc: `Khách hàng đến nhà thuốc với đơn thuốc của bác sĩ.
+Dược sĩ nhận đơn và kiểm tra tính hợp lệ của đơn thuốc.
+Hệ thống kiểm tra tương tác thuốc tự động (DUR check).
+Nếu có cảnh báo: Dược sĩ xem xét và quyết định có override không.
+Kỹ thuật viên thực hiện cấp phát thuốc từ kho.
+Kỹ thuật viên dán nhãn và đóng gói thuốc.
+Dược sĩ kiểm tra chất lượng và xác nhận trước khi giao.
+Hệ thống tạo hóa đơn và cập nhật hồ sơ bệnh nhân.
+Khách hàng thanh toán và nhận thuốc.`
+  },
+  leave: {
+    title: 'Quy trình xin nghỉ phép nhân viên',
+    desc: `Nhân viên điền form xin nghỉ phép trên hệ thống HR.
+Hệ thống gửi thông báo tự động cho quản lý trực tiếp.
+Quản lý xem xét đơn xin nghỉ của nhân viên.
+Nếu số ngày lớn hơn 3: HR cần xem xét và phê duyệt thêm.
+HR kiểm tra số ngày phép còn lại trong năm của nhân viên.
+Nếu không đủ ngày phép: HR từ chối và thông báo cho nhân viên.
+Quản lý phê duyệt đơn xin nghỉ.
+Hệ thống cập nhật số ngày phép và gửi email xác nhận cho nhân viên.`
+  },
+  invoice: {
+    title: 'Quy trình phê duyệt hóa đơn nhà cung cấp',
+    desc: `Kế toán nhận hóa đơn từ nhà cung cấp.
+Kế toán kiểm tra hóa đơn và đối chiếu với đơn đặt hàng gốc.
+Nếu có sai lệch: Liên hệ nhà cung cấp yêu cầu điều chỉnh.
+Kế toán gửi hóa đơn hợp lệ cho quản lý phê duyệt.
+Quản lý xem xét và phê duyệt hóa đơn.
+Nếu giá trị trên 50 triệu: Giám đốc cần ký duyệt thêm.
+Giám đốc phê duyệt hóa đơn giá trị lớn.
+Kế toán thực hiện thanh toán cho nhà cung cấp.
+Hệ thống ghi nhận thanh toán và lưu chứng từ kế toán.`
+  }
+};
+
+/* ─── SERVER CONFIG ───────────────────────────────────────────── */
+const API_BASE = 'http://localhost:3721/api';
+let serverAvailable = false;
+
+async function checkServer() {
+  try {
+    const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
+    serverAvailable = r.ok;
+  } catch { serverAvailable = false; }
+  updateServerBadge();
+}
+
+function updateServerBadge() {
+  const el = document.getElementById('server-status-badge');
+  if (!el) return;
+  if (serverAvailable) {
+    el.textContent = '⬤ Server Online';
+    el.className = 'server-badge online';
+  } else {
+    el.textContent = '⬤ Offline';
+    el.className = 'server-badge offline';
+  }
+}
+
+/* ─── STATE ───────────────────────────────────────────────────── */
+const state = {
+  step: 1,
+  title: '',
+  desc: '',
+  steps: [],
+  xml: '',
+  viewer: null,
+  assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') === '1',
+};
+
+/* ─── STEP NAVIGATION ─────────────────────────────────────────── */
+function goToStep(n) {
+  state.step = n;
+  [1, 2, 3].forEach(i => {
+    document.getElementById(`panel-step${i}`).classList.toggle('hidden', i !== n);
+    const ind = document.getElementById(`step-indicator-${i}`);
+    ind.classList.remove('active', 'done');
+    if (i < n) ind.classList.add('done');
+    if (i === n) ind.classList.add('active');
+    ind.querySelector('.step-circle').textContent = i < n ? '✓' : String(i);
+  });
+  document.getElementById('line-1-2').classList.toggle('done', n > 1);
+  document.getElementById('line-2-3').classList.toggle('done', n > 2);
+
+  if (n === 3) {
+    syncAssistantState();
+  }
+}
+
+function syncAssistantState() {
+  const assistant = document.getElementById('diagram-assistant');
+  const toggle = document.getElementById('btn-toggle-assistant');
+  if (!assistant || !toggle) return;
+
+  assistant.classList.toggle('collapsed', state.assistantCollapsed);
+  toggle.setAttribute('aria-expanded', String(!state.assistantCollapsed));
+  toggle.setAttribute('title', state.assistantCollapsed ? 'Mở chatbot' : 'Thu gọn chatbot');
+}
+
+/* ─── TOAST ───────────────────────────────────────────────────── */
+function toast(msg, type = 'info') {
+  const wrap = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+  t.innerHTML = `<span>${icons[type] || ''}</span><span>${msg}</span>`;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; t.style.transition = '0.2s'; setTimeout(() => t.remove(), 200); }, 3500);
+}
+
+/* ─── RENDER STEPS TABLE ──────────────────────────────────────── */
+function renderTable(steps) {
+  const tbody = document.getElementById('logic-tbody');
+  tbody.innerHTML = '';
+  const label = document.getElementById('steps-count-label');
+  if (label) label.textContent = steps.length > 0 ? `${steps.length} bước được trích xuất.` : '';
+
+  const TASK_OPTIONS = [
+    ['task', 'Task'],
+    ['userTask', 'User Task 👤'],
+    ['serviceTask', 'Service Task ⚙️'],
+    ['manualTask', 'Manual Task 🖐'],
+    ['sendTask', 'Send Task 📤'],
+    ['receiveTask', 'Receive Task 📥'],
+    ['scriptTask', 'Script Task 📜'],
+    ['businessRuleTask', 'Business Rule Task 📋'],
+  ];
+
+  steps.forEach((step, idx) => {
+    const tr = document.createElement('tr');
+    const opts = TASK_OPTIONS.map(([v, l]) =>
+      `<option value="${v}" ${step.type === v ? 'selected' : ''}>${l}</option>`
+    ).join('');
+
+    tr.innerHTML = `
+      <td class="td-step"><div class="step-badge">${idx + 1}</div></td>
+      <td><input class="table-input" data-field="actor" value="${esc(step.actor)}" placeholder="Actor / Swimlane" /></td>
+      <td><input class="table-input" data-field="action" value="${esc(step.action)}" placeholder="Hành động..." /></td>
+      <td><select class="table-select" data-field="type">${opts}</select></td>
+      <td><input class="table-input" data-field="condition" value="${esc(step.condition || '')}" placeholder="Điều kiện…" /></td>
+      <td>
+        <button class="btn-delete-row" data-idx="${idx}" title="Xóa bước này">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 3.5h10M5.5 3.5V2.5a1 1 0 0 1 2 0v1M6 6v4M8 6v4M3 3.5l.8 7a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.8-7"
+              stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </td>`;
+    tbody.appendChild(tr);
+
+    tr.querySelectorAll('.table-input, .table-select').forEach(el => {
+      el.addEventListener('change', () => { state.steps[idx][el.dataset.field] = el.value; });
+    });
+    tr.querySelector('.btn-delete-row').addEventListener('click', () => {
+      state.steps.splice(idx, 1);
+      renderTable(state.steps);
+    });
+  });
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ─── STEP 1 → 2: ANALYZE ────────────────────────────────────── */
+document.getElementById('btn-analyze').addEventListener('click', async () => {
+  const title = document.getElementById('process-title').value.trim();
+  const desc = document.getElementById('process-desc').value.trim();
+  if (!title) { toast('Hãy nhập tên quy trình!', 'error'); return; }
+  if (desc.length < 15) { toast('Mô tả quá ngắn — hãy thêm chi tiết', 'error'); return; }
+
+  state.title = title; state.desc = desc;
+  const btn = document.getElementById('btn-analyze');
+  setLoading(btn, 'analyze-text', 'analyze-spinner', true, 'Đang phân tích…');
+
+  await delay(250);
+  try {
+    if (serverAvailable) {
+      const res = await fetch(`${API_BASE}/parse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description: desc }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      state.steps = data.structure.steps;
+      toast(`✅ Trích xuất ${state.steps.length} bước (Server)`, 'success');
+    } else {
+      state.steps = parseFallback(title, desc);
+      toast(`Trích xuất ${state.steps.length} bước (Offline)`, 'info');
+    }
+    renderTable(state.steps);
+    goToStep(2);
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'error');
+  }
+  setLoading(btn, 'analyze-text', 'analyze-spinner', false, 'Phân tích & Tiếp tục');
+});
+
+/* ─── BACK BUTTONS ────────────────────────────────────────────── */
+['btn-back-1', 'btn-back-1b'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', () => goToStep(1));
+});
+document.getElementById('btn-back-2').addEventListener('click', () => goToStep(2));
+
+/* ─── ADD ROW ─────────────────────────────────────────────────── */
+document.getElementById('btn-add-row').addEventListener('click', () => {
+  state.steps.push({ step: state.steps.length + 1, actor: '', action: 'Bước mới', condition: '', type: 'task' });
+  renderTable(state.steps);
+  document.querySelector('.logic-table-wrap').scrollTop = 9999;
+});
+
+/* ─── EXAMPLE CHIPS ───────────────────────────────────────────── */
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const ex = EXAMPLES[chip.dataset.example];
+    if (ex) {
+      document.getElementById('process-title').value = ex.title;
+      document.getElementById('process-desc').value = ex.desc;
+    }
+  });
+});
+
+/* ─── STEP 2 → 3: GENERATE ───────────────────────────────────── */
+document.getElementById('btn-generate').addEventListener('click', async () => {
+  if (state.steps.length === 0) { toast('Cần ít nhất 1 bước!', 'error'); return; }
+
+  const btn = document.getElementById('btn-generate');
+  setLoading(btn, 'gen-text', 'gen-spinner', true, 'Đang tạo…');
+  await delay(200);
+
+  try {
+    let xml;
+    if (serverAvailable) {
+      const res = await fetch(`${API_BASE}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: state.title, steps: state.steps }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      xml = data.xml;
+      toast('✅ Sơ đồ được tạo bởi BPMN Studio Engine 🎉', 'success');
+    } else {
+      xml = BpmnEngine.generate(state.title, state.steps);
+      toast('Tạo sơ đồ (offline mode)', 'info');
+    }
+
+    state.xml = xml;
+    document.getElementById('diagram-title-display').textContent = state.title;
+    document.getElementById('xml-preview').textContent = xml;
+    goToStep(3);
+    await renderBpmn(xml);
+  } catch (e) {
+    toast('Lỗi tạo BPMN: ' + e.message, 'error');
+    console.error(e);
+  }
+  setLoading(btn, 'gen-text', 'gen-spinner', false, 'Tạo Sơ đồ BPMN');
+});
+
+/* ─── IMPORT .bpmn ────────────────────────────────────────────── */
+document.getElementById('btn-import-bpmn').addEventListener('click', () => {
+  document.getElementById('input-file-bpmn').click();
+});
+
+document.getElementById('input-file-bpmn').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const xml = await file.text();
+  state.xml = xml;
+  state.title = file.name.replace(/\.(bpmn|xml)$/i, '');
+  document.getElementById('diagram-title-display').textContent = state.title;
+  document.getElementById('xml-preview').textContent = xml;
+  goToStep(3);
+  await renderBpmn(xml);
+  toast(`Đã import: ${file.name}`, 'success');
+  e.target.value = '';
+});
+
+/* ─── RENDER BPMN (bpmn-js modeler, supports lanes+participants) ── */
+async function renderBpmn(xml) {
+  const loading = document.getElementById('bpmn-loading');
+  loading.classList.remove('hidden');
+  try {
+    if (state.viewer) { state.viewer.destroy(); state.viewer = null; }
+    const canvas = document.getElementById('bpmn-canvas');
+    canvas.innerHTML = '';
+
+    // Use BpmnModeler (not BpmnJS viewer) — supports Participant + Lane rendering
+    const Modeler = window.BpmnModeler || window.BpmnJS;
+    if (!Modeler) {
+      throw new Error('Thư viện bpmn-js chưa được tải. Kiểm tra file server/node_modules/bpmn-js/dist/bpmn-modeler.production.min.js.');
+    }
+    const viewer = new Modeler({
+      container: canvas,
+      width: '100%',
+      height: '100%',
+      keyboard: { bindTo: document },
+    });
+    // IMPORTANT: Let the DOM reflow after removing the 'hidden' class from #panel-step3
+    // so the canvas container gets actual width/height instead of 0x0
+    await new Promise(resolve => setTimeout(resolve, 150));
+    state.viewer = viewer;
+    
+    await viewer.importXML(xml);
+
+    await new Promise(resolve => setTimeout(resolve, 150)); // let SVG elements mount properly before computing bboxes
+    
+    // Try to fit viewport, fallback to zoom 1 if it fails (fixes SVGMatrix non-finite float error)
+    try {
+      viewer.get('canvas').zoom('fit-viewport', 'auto');
+    } catch (zoomErr) {
+      console.warn('fit-viewport failed, using default zoom:', zoomErr);
+      try { viewer.get('canvas').zoom(1); } catch(e) { console.error('Zoom 1 fallback also failed', e); }
+    }
+
+    // (We now leave the palette visible so users can edit the diagram as requested)
+
+    loading.classList.add('hidden');
+  } catch (err) {
+    loading.classList.add('hidden');
+    document.getElementById('bpmn-canvas').innerHTML = `
+      <div style="padding:32px;color:#6b7280;font-size:0.875rem;line-height:1.8;max-width:520px;margin:40px auto">
+        <p style="color:#d97706;font-weight:700;margin-bottom:12px;font-size:1rem">⚠ Không thể hiển thị preview</p>
+        <p>File <strong>.bpmn đã tạo thành công</strong> và sẵn sàng để tải về.</p>
+        <p style="margin-top:8px">Nhấn <strong>Tải .bpmn</strong> → mở trong <strong>Camunda Modeler</strong> để xem sơ đồ hoàn chỉnh với swimlane.</p>
+        <p style="margin-top:12px;font-size:0.78rem;color:#9ca3af">Chi tiết: ${err.message}</p>
+      </div>`;
+    toast('Tải .bpmn rồi mở Camunda Modeler để xem sơ đồ đẹp!', 'info');
+  }
+}
+
+/* ─── ZOOM ────────────────────────────────────────────────────── */
+document.getElementById('btn-zoom-fit').addEventListener('click', () => state.viewer?.get('canvas').zoom('fit-viewport', 'auto'));
+document.getElementById('btn-zoom-in').addEventListener('click', () => { const c = state.viewer?.get('canvas'); if (c) c.zoom(c.zoom() * 1.25); });
+document.getElementById('btn-zoom-out').addEventListener('click', () => { const c = state.viewer?.get('canvas'); if (c) c.zoom(c.zoom() * 0.8); });
+
+/* ─── TOGGLE XML SIDEBAR ──────────────────────────────────────── */
+document.getElementById('btn-toggle-xml').addEventListener('click', () => {
+  const sidebar = document.getElementById('xml-sidebar');
+  sidebar.classList.toggle('hidden');
+});
+
+/* ─── TOGGLE ASSISTANT ───────────────────────────────────────── */
+document.getElementById('btn-toggle-assistant')?.addEventListener('click', () => {
+  state.assistantCollapsed = !state.assistantCollapsed;
+  localStorage.setItem('diagram_assistant_collapsed', state.assistantCollapsed ? '1' : '0');
+  syncAssistantState();
+});
+
+/* ─── COPY XML ────────────────────────────────────────────────── */
+document.getElementById('btn-copy-xml').addEventListener('click', async () => {
+  if (!state.xml) return;
+  try {
+    await navigator.clipboard.writeText(state.xml);
+    toast('Đã copy XML!', 'success');
+  } catch { toast('Không thể copy', 'error'); }
+});
+
+/* ─── DOWNLOAD .bpmn ──────────────────────────────────────────── */
+document.getElementById('btn-download').addEventListener('click', () => {
+  if (!state.xml) { toast('Chưa có sơ đồ', 'error'); return; }
+  const blob = new Blob([state.xml], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {
+    href: url,
+    download: (state.title || 'process').replace(/[<>:"|?*\\/]/g, '_').trim() + '.bpmn',
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Đã tải file .bpmn — mở trong Camunda Modeler!', 'success');
+});
+
+/* ─── SAVE (localStorage) ─────────────────────────────────────── */
+document.getElementById('btn-save').addEventListener('click', () => {
+  if (!state.xml) { toast('Chưa có sơ đồ', 'error'); return; }
+  const saved = JSON.parse(localStorage.getItem('bpmn_processes') || '[]');
+  saved.unshift({ id: Date.now(), title: state.title, steps: state.steps, xml: state.xml, savedAt: new Date().toISOString() });
+  localStorage.setItem('bpmn_processes', JSON.stringify(saved.slice(0, 30)));
+  toast('Đã lưu!', 'success');
+});
+
+/* ─── START OVER ──────────────────────────────────────────────── */
+document.getElementById('btn-start-over').addEventListener('click', () => {
+  if (!confirm('Bắt đầu lại từ đầu?')) return;
+  document.getElementById('process-title').value = '';
+  document.getElementById('process-desc').value = '';
+  state.steps = []; state.xml = '';
+  if (state.viewer) { state.viewer.destroy(); state.viewer = null; }
+  goToStep(1);
+});
+
+/* ─── FALLBACK PARSER (offline mode) ─────────────────────────── */
+function parseFallback(title, desc) {
+  const ACTORS = [
+    { re: /khách\s*hàng|customer|client|người\s*dùng|user/i, a: 'Khách hàng' },
+    { re: /nhân\s*viên\s*bán|sales|bán\s*hàng/i, a: 'Nhân viên bán hàng' },
+    { re: /dược\s*sĩ|pharmacist/i, a: 'Dược sĩ' },
+    { re: /kỹ\s*thuật\s*viên|technician/i, a: 'Kỹ thuật viên' },
+    { re: /hệ\s*thống|system|tự\s*động|auto/i, a: 'Hệ thống' },
+    { re: /quản\s*lý|manager|supervisor/i, a: 'Quản lý' },
+    { re: /hr|nhân\s*sự/i, a: 'HR' },
+    { re: /kế\s*toán|accountant/i, a: 'Kế toán' },
+    { re: /giám\s*đốc|director/i, a: 'Giám đốc' },
+    { re: /shipper|giao\s*hàng/i, a: 'Shipper' },
+    { re: /bác\s*sĩ|doctor/i, a: 'Bác sĩ' },
+  ];
+  const lines = desc.split('\n').map(l => l.trim()).filter(l => l.length > 4);
+  let lastActor = 'Người dùng', n = 1;
+  const steps = [];
+  for (const line of lines) {
+    const clean = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-–•]\s*/, '').trim();
+    if (!clean) continue;
+    let actor = null;
+    for (const { re, a } of ACTORS) { if (re.test(clean)) { actor = a; break; } }
+    actor = actor || lastActor;
+    lastActor = actor;
+    const isCond = /^(nếu|if|khi|when)\b/i.test(clean);
+    let condition = '', action = clean;
+    if (isCond) {
+      const parts = clean.split(/[:：]/);
+      if (parts.length > 1) { condition = parts[0].replace(/^(nếu|if|khi|when)\s*/i, '').trim(); action = parts.slice(1).join(':').trim(); }
+      else { condition = 'Điều kiện'; }
+    }
+    let type = 'task';
+    if (/phê\s*duyệt|approve|review|xem\s*xét/i.test(action)) type = 'userTask';
+    if (/hệ\s*thống|tự\s*động|auto|tạo|generate/i.test(action)) type = 'serviceTask';
+    if (/gửi\s*(email|thông|sms)|send/i.test(action)) type = 'sendTask';
+    steps.push({ step: n++, actor, action: action.substring(0, 100), condition: condition.substring(0, 80), type });
+  }
+  return steps.length > 0 ? steps : [
+    { step: 1, actor: 'Người dùng', action: title, condition: '', type: 'task' },
+    { step: 2, actor: 'Hệ thống', action: 'Xử lý yêu cầu', condition: '', type: 'serviceTask' },
+  ];
+}
+
+/* ─── HELPERS ─────────────────────────────────────────────────── */
+function setLoading(btn, textId, spinnerId, on, label) {
+  document.getElementById(textId).textContent = label;
+  document.getElementById(spinnerId)?.classList.toggle('hidden', !on);
+  btn.disabled = on;
+}
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+/* ─── INIT ────────────────────────────────────────────────────── */
+checkServer();
+setInterval(checkServer, 12000);
+syncAssistantState();
+goToStep(1);

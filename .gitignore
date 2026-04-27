@@ -1,0 +1,12 @@
+node_modules/
+.env
+.DS_Store
+
+# Exclude heavy local runtimes and unneeded folders
+c8run-*/
+camunda-modeler-*/
+camunda-8-get-started/
+mcp-camunda/
+BA skill/
+ai-agent-example/
+bpmn-js-mcp-main/

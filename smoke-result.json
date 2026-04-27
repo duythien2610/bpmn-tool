@@ -1,0 +1,19 @@
+{
+  "receivedAt": "2026-04-18T03:49:49.175Z",
+  "ok": true,
+  "step2Rows": 5,
+  "step3Visible": true,
+  "loadingHidden": true,
+  "hasDjsContainer": true,
+  "hasSvg": true,
+  "hasPalette": true,
+  "assistantVisible": true,
+  "assistantInitiallyCollapsed": false,
+  "assistantCollapsedAfterToggle": true,
+  "assistantCollapsedAfterSecondToggle": false,
+  "xmlLength": 5718,
+  "canvasWidth": 1439,
+  "canvasHeight": 673,
+  "canvasTextSnippet": "Smoke Test BPMNHệ thốngKhách hàngStartKhách hàng gửi yêu cầu.Hệ thống kiểm tra dữ liệu.Hệ thống yêu cầu bổ sung.thiếu thông tin?Nhân viên xử lýhồ sơ.Hệ thống cập nhật trạng thái ho",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0"
+}

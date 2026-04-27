@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BPMN Studio — Professional BPMN 2.0 Design Tool</title>
+  <meta name="description" content="Công cụ thiết kế sơ đồ BPMN 2.0 chuyên nghiệp. Chuyển mô tả quy trình thành sơ đồ chuẩn Camunda tự động." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── NAVBAR ───────────────────────────────────────────────────── -->
+<nav class="navbar">
+  <a href="/" class="nav-logo">
+    <div class="logo-icon">B</div>
+    <span class="logo-text">BPMN Studio</span>
+    <span class="logo-badge">v2.0</span>
+  </a>
+  <div class="nav-links">
+    <a href="designer.html">Designer</a>
+    <a href="designer.html" style="background:var(--primary);color:#fff;padding:7px 18px;border-radius:8px;font-weight:600">
+      Bắt đầu ngay →
+    </a>
+  </div>
+</nav>
+
+<!-- ── HERO ─────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1.5L8.8 5.2l4.2.6-3 3 .7 4.2L7 11 3.3 13l.7-4.2-3-3 4.2-.6L7 1.5Z" fill="currentColor"/>
+      </svg>
+      BPMN 2.0 · Camunda Compatible · Auto-Layout
+    </div>
+
+    <h1>Vẽ sơ đồ<br /><span>BPMN chuẩn</span> bằng ngôn ngữ tự nhiên</h1>
+
+    <p class="hero-desc">
+      Mô tả quy trình bằng tiếng Việt — BPMN Studio tự động tạo sơ đồ
+      chuẩn BPMN 2.0 với swimlane, gateway, và layout đẹp. Tải file .bpmn
+      mở thẳng trong Camunda Modeler.
+    </p>
+
+    <div class="hero-cta">
+      <a href="designer.html" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8h10M9 5l4 3-4 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Mở Design Tool
+      </a>
+      <a href="#how-it-works" class="btn-secondary">Xem cách dùng</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ──────────────────────────────────────────────────── -->
+<section class="features">
+  <div class="section-header">
+    <h2>Tất cả những gì bạn cần</h2>
+    <p>Công cụ đầy đủ để tạo tài liệu BPMN chuyên nghiệp</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <h3>AI Parser thông minh</h3>
+      <p>Nhận dạng actor, action, điều kiện từ mô tả tiếng Việt / Anh. Tự động phân loại task type (User, Service, Send...).</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📐</div>
+      <h3>Horizontal Layout đẹp</h3>
+      <p>Sơ đồ chảy từ trái sang phải, swimlane theo actor, connector thẳng hàng — giống Camunda Modeler thực tế.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🏊</div>
+      <h3>Swimlane tự động</h3>
+      <p>Tự động tạo Pool và Lane dựa trên actor trong quy trình. Không cần kéo thả thủ công.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔀</div>
+      <h3>Gateway & Phân nhánh</h3>
+      <p>Nhận biết điều kiện "Nếu…" → tạo Exclusive Gateway tự động với các nhánh Yes/No.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📁</div>
+      <h3>Export .bpmn chuẩn</h3>
+      <p>Xuất file BPMN 2.0 XML mở được trong Camunda Modeler, bpmn.io, hoặc bất kỳ công cụ BPMN nào.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✏️</div>
+      <h3>Review & Chỉnh sửa</h3>
+      <p>Bảng logic trực quan để chỉnh sửa actor, action, task type trước khi render sơ đồ cuối.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ───────────────────────────────────────────────── -->
+<section class="steps-section" id="how-it-works">
+  <div class="steps-inner">
+    <div class="section-header">
+      <h2>Chỉ 3 bước đơn giản</h2>
+      <p>Từ mô tả tự nhiên đến file .bpmn sẵn sàng cho sếp</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <h3>Mô tả quy trình</h3>
+        <p>Nhập mô tả bằng tiếng Việt theo từng bước, ghi rõ ai làm gì và điều kiện nào.</p>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <h3>Xem xét & Chỉnh sửa</h3>
+        <p>Kiểm tra bảng logic được trích xuất, thêm/sửa/xóa bước nếu cần, chọn task type.</p>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <h3>Tải .bpmn về dùng</h3>
+        <p>Click Download — mở file .bpmn trong Camunda Modeler, sơ đồ hoàn chỉnh với swimlane.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────── -->
+<footer>
+  <p>
+    BPMN Studio — Built with ❤️ using
+    <a href="https://bpmn.io" target="_blank">bpmn-js</a> &amp;
+    <a href="https://github.com/bpmn-io/bpmn-auto-layout" target="_blank">bpmn-auto-layout</a> ·
+    Tương thích <a href="https://camunda.com/download/modeler/" target="_blank">Camunda Modeler</a>
+  </p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

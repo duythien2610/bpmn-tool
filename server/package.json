@@ -1,0 +1,27 @@
+{
+  "name": "bpmn-studio-server",
+  "version": "2.0.0",
+  "description": "BPMN Studio — Professional BA Tool with MCP Server",
+  "main": "server.js",
+  "scripts": {
+    "start":  "node server.js",
+    "dev":    "node --watch server.js",
+    "mcp":    "node --input-type=module mcp-server.js",
+    "studio": "start node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "bpmn-auto-layout": "^1.2.0",
+    "bpmn-js": "^18.8.0",
+    "bpmn-moddle": "^9.0.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "jsdom": "^25.0.1",
+    "zod": "^3.24.3",
+    "zeebe-bpmn-moddle": "^1.12.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

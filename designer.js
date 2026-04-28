@@ -324,7 +324,7 @@ async function renderBpmn(xml) {
     // Use BpmnModeler (not BpmnJS viewer) — supports Participant + Lane rendering
     const Modeler = window.BpmnModeler || window.BpmnJS;
     if (!Modeler) {
-      throw new Error('Thư viện bpmn-js chưa được tải. Kiểm tra file server/node_modules/bpmn-js/dist/bpmn-modeler.production.min.js.');
+      throw new Error('Thư viện bpmn-js chưa được tải. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau (do lỗi tải file từ CDN).');
     }
     const viewer = new Modeler({
       container: canvas,

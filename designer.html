@@ -49,38 +49,39 @@
 
 <!-- ── PROCESS METADATA BAR ─────────────────────────────────── -->
 <div class="meta-bar" id="meta-bar">
-  <div class="meta-field">
-    <label class="meta-label">Owner</label>
-    <input class="meta-input" id="meta-owner" type="text" placeholder="e.g. Thiên — BA" />
-  </div>
-  <div class="meta-sep"></div>
-  <div class="meta-field">
-    <label class="meta-label">Version</label>
-    <input class="meta-input meta-input--sm" id="meta-version" type="text" placeholder="v1.0" style="width:60px" />
-  </div>
-  <div class="meta-sep"></div>
-  <div class="meta-field">
-    <label class="meta-label">Status</label>
-    <div class="meta-status-group" id="meta-status-group">
-      <button class="meta-status-btn" data-status="draft">Draft</button>
-      <button class="meta-status-btn active" data-status="as-is">AS-IS</button>
-      <button class="meta-status-btn" data-status="to-be">TO-BE</button>
-      <button class="meta-status-btn" data-status="approved">Approved</button>
+  <div class="meta-primary">
+    <div class="meta-field">
+      <label class="meta-label">Owner</label>
+      <input class="meta-input" id="meta-owner" type="text" placeholder="e.g. Thiên — BA" />
+    </div>
+    <div class="meta-field">
+      <label class="meta-label">Version</label>
+      <input class="meta-input meta-input--sm" id="meta-version" type="text" placeholder="v1.0" style="width:60px" />
+    </div>
+    <div class="meta-field meta-field--status">
+      <label class="meta-label">Status</label>
+      <div class="meta-status-group" id="meta-status-group">
+        <button class="meta-status-btn" data-status="draft">Draft</button>
+        <button class="meta-status-btn active" data-status="as-is">AS-IS</button>
+        <button class="meta-status-btn" data-status="to-be">TO-BE</button>
+        <button class="meta-status-btn" data-status="approved">Approved</button>
+      </div>
     </div>
   </div>
-  <div class="meta-sep"></div>
-  <div class="meta-field">
-    <label class="meta-label">Last Modified</label>
-    <span class="meta-date" id="meta-date">—</span>
-  </div>
-  <div class="meta-sep"></div>
-  <div class="meta-field" style="margin-left:auto">
-    <button class="btn-meta-save" id="btn-meta-save" title="Save metadata">
+
+  <div class="meta-secondary">
+    <div class="meta-field meta-field--ghost">
+      <label class="meta-label">Last Modified</label>
+      <span class="meta-date" id="meta-date">—</span>
+    </div>
+    <div class="meta-field meta-field--action">
+      <button class="btn-meta-save" id="btn-meta-save" title="Save metadata">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
         <path d="M1 9l3 3 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       Save Meta
     </button>
+    </div>
   </div>
 </div>
 
@@ -88,17 +89,26 @@
 <nav class="stepper">
   <div class="step-indicator" id="step-indicator-1">
     <div class="step-circle">1</div>
-    <span>Mô tả quy trình</span>
+    <div class="step-copy">
+      <strong>Mô tả quy trình</strong>
+      <span>Nhập nguồn nghiệp vụ</span>
+    </div>
   </div>
   <div class="step-line" id="line-1-2"></div>
   <div class="step-indicator" id="step-indicator-2">
     <div class="step-circle">2</div>
-    <span>Xem xét logic</span>
+    <div class="step-copy">
+      <strong>Xem xét logic</strong>
+      <span>Kiểm tra lane và flow</span>
+    </div>
   </div>
   <div class="step-line" id="line-2-3"></div>
   <div class="step-indicator" id="step-indicator-3">
     <div class="step-circle">3</div>
-    <span>Sơ đồ BPMN</span>
+    <div class="step-copy">
+      <strong>Sơ đồ BPMN</strong>
+      <span>Chỉnh và export output</span>
+    </div>
   </div>
 </nav>
 
@@ -110,9 +120,9 @@
     <div class="input-body">
       <section class="workspace-hero">
         <div class="workspace-hero-copy">
-          <span class="prompt-guidance-kicker">Camunda-first BPMN</span>
-          <h1>Biến mô tả nghiệp vụ thành sơ đồ BPMN rõ lane, đúng flow, dễ chỉnh sửa.</h1>
-          <p>Nhập mô tả tự do, hệ thống sẽ bóc actor, action, gateway và dựng BPMN theo hướng gần chuẩn Camunda nhất có thể.</p>
+          <span class="prompt-guidance-kicker">Step 1 · Capture</span>
+          <h1>Tạo đầu vào rõ ràng để AI tách đúng actor, lane và nhánh điều kiện.</h1>
+          <p>Đây là bước nhập liệu nghiệp vụ. Viết theo từng hành động ngắn, actor ở đầu câu, và dùng “Nếu...” cho điều kiện để giảm lỗi parse.</p>
         </div>
         <div class="workspace-hero-stats">
           <div class="hero-stat-card">
@@ -343,6 +353,13 @@ Khách hàng nhận hàng và xác nhận."></textarea>
 ═══════════════════════════════════════════════════ -->
 <div class="panel hidden" id="panel-step3">
   <div class="diagram-panel">
+    <div class="review-banner review-banner--diagram">
+      <div>
+        <span class="form-card-kicker">Step 3</span>
+        <h3>Kiểm tra sơ đồ BPMN cuối cùng</h3>
+      </div>
+      <p>Tại đây bạn xem lane, sequence flow, event và chỉnh thêm trước khi validate hoặc export.</p>
+    </div>
 
     <!-- Toolbar -->
     <div class="diagram-toolbar">

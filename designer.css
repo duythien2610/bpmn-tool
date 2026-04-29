@@ -1356,6 +1356,233 @@ body {
   line-height: 1.6;
 }
 
+.workspace-hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 26px 28px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 24%),
+    linear-gradient(135deg, #fff7ed 0%, #ffffff 42%, #f8fafc 100%);
+  border: 1px solid rgba(251, 146, 60, 0.18);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.workspace-hero-copy {
+  max-width: 760px;
+}
+
+.workspace-hero-copy h1 {
+  font-size: 2rem;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.workspace-hero-copy p {
+  color: #475569;
+  font-size: 0.96rem;
+  line-height: 1.75;
+  max-width: 60ch;
+}
+
+.workspace-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(118px, 1fr));
+  gap: 12px;
+  min-width: 380px;
+}
+
+.hero-stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.hero-stat-card strong {
+  font-size: 1.35rem;
+  color: #0f172a;
+}
+
+.hero-stat-card span {
+  font-size: 0.76rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.hero-stat-card--accent {
+  background: linear-gradient(180deg, #fff7ed, #ffffff);
+  border-color: rgba(249, 115, 22, 0.28);
+}
+
+.input-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.8fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.input-main,
+.input-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-card,
+.side-card,
+.review-banner {
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+}
+
+.form-card {
+  padding: 24px;
+}
+
+.form-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.form-card-kicker,
+.side-card-kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f97316;
+  margin-bottom: 8px;
+}
+
+.form-card-header h3,
+.side-card h3,
+.review-banner h3 {
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.form-card-badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prompt-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.side-card {
+  padding: 20px;
+}
+
+.side-card--dark {
+  background: linear-gradient(180deg, #0f172a, #172554);
+  border-color: rgba(255,255,255,0.08);
+  color: #e2e8f0;
+}
+
+.side-card--dark h3,
+.side-card--dark .side-card-kicker {
+  color: #fff;
+}
+
+.side-checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.side-checklist li,
+.side-preview-item span {
+  font-size: 0.83rem;
+  line-height: 1.65;
+}
+
+.side-checklist li {
+  position: relative;
+  padding-left: 18px;
+}
+
+.side-checklist li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fb923c;
+  box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.12);
+}
+
+.side-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.side-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px dashed rgba(148, 163, 184, 0.28);
+}
+
+.side-preview-item:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.side-preview-item strong {
+  font-size: 0.86rem;
+  color: #0f172a;
+}
+
+.review-banner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  margin: 14px 16px 0;
+}
+
+.review-banner p {
+  max-width: 54ch;
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
 .logic-summary {
   display: flex;
   align-items: center;
@@ -1387,6 +1614,34 @@ body {
   margin-left: auto;
   font-size: 0.78rem;
   color: var(--text-secondary);
+}
+
+.logic-toolbar,
+.logic-summary,
+.logic-table-wrap {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.logic-toolbar,
+.logic-summary {
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.logic-table-wrap {
+  border-radius: 20px;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.06);
+}
+
+.logic-table thead th {
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.logic-table tbody tr:nth-child(even) {
+  background: rgba(248, 250, 252, 0.68);
 }
 
 .diagram-canvas-wrap {
@@ -1424,6 +1679,26 @@ body {
   background: rgba(249, 115, 22, 0.12);
   border-color: rgba(249, 115, 22, 0.28);
   color: #c2410c;
+}
+
+.diagram-toolbar,
+.diagram-footer {
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+.diagram-title {
+  font-size: 0.92rem;
+}
+
+.xml-sidebar,
+.props-panel {
+  background: linear-gradient(180deg, #fbfdff, #f8fafc);
+}
+
+.assistant-body {
+  background:
+    linear-gradient(180deg, rgba(248,250,252,0.9), rgba(241,245,249,0.95));
 }
 
 .diagram-assistant {
@@ -1509,6 +1784,21 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .workspace-hero,
+  .review-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .workspace-hero-stats {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .input-layout {
+    grid-template-columns: 1fr;
+  }
+
   .logic-summary-hint {
     margin-left: 0;
   }
@@ -1524,8 +1814,40 @@ body {
     border-radius: 18px;
   }
 
+  .workspace-hero {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
   .prompt-guidance h1 {
     font-size: 1.18rem;
+  }
+
+  .workspace-hero-copy h1 {
+    font-size: 1.38rem;
+  }
+
+  .workspace-hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .review-banner,
+  .logic-toolbar,
+  .logic-summary,
+  .logic-table-wrap {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .form-card,
+  .side-card {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .form-card-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .diagram-insight-bar {

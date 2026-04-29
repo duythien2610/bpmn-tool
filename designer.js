@@ -136,6 +136,45 @@ function renderDiagramInsights(steps) {
   tasks.textContent = `${stats.taskCount} step${stats.taskCount === 1 ? '' : 's'}`;
 }
 
+function updatePromptWorkspace() {
+  const title = document.getElementById('process-title')?.value.trim() || '';
+  const desc = document.getElementById('process-desc')?.value || '';
+  const words = desc.trim() ? desc.trim().split(/\s+/).filter(Boolean).length : 0;
+  const lines = desc.split(/\n+/).map(line => line.trim()).filter(Boolean).length;
+  const chars = desc.length;
+
+  const wordEl = document.getElementById('prompt-word-count');
+  const lineEl = document.getElementById('prompt-line-count');
+  const qualityEl = document.getElementById('prompt-quality-label');
+  const charEl = document.getElementById('prompt-char-count');
+  const hintEl = document.getElementById('prompt-structure-hint');
+  const statusEl = document.getElementById('prompt-status-badge');
+
+  if (wordEl) wordEl.textContent = String(words);
+  if (lineEl) lineEl.textContent = String(lines);
+  if (charEl) charEl.textContent = `${chars} ký tự`;
+
+  let quality = 'Đang chờ';
+  let status = 'Chưa đủ dữ liệu';
+  let hint = 'Mẹo: thêm actor ở đầu câu để lane chính xác hơn.';
+
+  if (title && chars >= 15 && lines >= 3) {
+    quality = lines >= 5 && /\bnếu\b|^nếu\b/i.test(desc) ? 'Tốt' : 'Ổn';
+    status = 'Sẵn sàng phân tích';
+    hint = lines >= 5
+      ? 'Mô tả đang đủ chi tiết để hệ thống tách lane và gateway tốt hơn.'
+      : 'Nên thêm vài bước nữa để sơ đồ đầy đủ hơn.';
+  } else if (chars > 0 || title) {
+    quality = 'Đang nhập';
+    status = 'Cần thêm chi tiết';
+    hint = 'Cần tên quy trình và mô tả tối thiểu vài bước nghiệp vụ.';
+  }
+
+  if (qualityEl) qualityEl.textContent = quality;
+  if (statusEl) statusEl.textContent = status;
+  if (hintEl) hintEl.textContent = hint;
+}
+
 /* ─── STEP NAVIGATION ─────────────────────────────────────────── */
 function goToStep(n) {
   state.step = n;
@@ -297,9 +336,13 @@ document.querySelectorAll('.chip').forEach(chip => {
     if (ex) {
       document.getElementById('process-title').value = ex.title;
       document.getElementById('process-desc').value = ex.desc;
+      updatePromptWorkspace();
     }
   });
 });
+
+document.getElementById('process-title')?.addEventListener('input', updatePromptWorkspace);
+document.getElementById('process-desc')?.addEventListener('input', updatePromptWorkspace);
 
 /* ─── STEP 2 → 3: GENERATE ───────────────────────────────────── */
 document.getElementById('btn-generate').addEventListener('click', async () => {
@@ -1073,6 +1116,7 @@ checkServer();
 setInterval(checkServer, 12000);
 syncAssistantState();
 initPropsPanel();
+updatePromptWorkspace();
 renderLogicSummary([]);
 renderDiagramInsights([]);
 goToStep(1);

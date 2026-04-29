@@ -108,60 +108,128 @@
 <div class="panel" id="panel-step1">
   <div class="input-panel">
     <div class="input-body">
-      <section class="prompt-guidance">
-        <div class="prompt-guidance-copy">
+      <section class="workspace-hero">
+        <div class="workspace-hero-copy">
           <span class="prompt-guidance-kicker">Camunda-first BPMN</span>
-          <h1>Nhập mô tả tự do, hệ thống sẽ cố gắng bóc tách actor, lane và nhánh điều kiện.</h1>
-          <p>Ghi càng rõ vai trò và kết quả từng bước, sơ đồ càng gần chuẩn Camunda và ít phải sửa tay.</p>
+          <h1>Biến mô tả nghiệp vụ thành sơ đồ BPMN rõ lane, đúng flow, dễ chỉnh sửa.</h1>
+          <p>Nhập mô tả tự do, hệ thống sẽ bóc actor, action, gateway và dựng BPMN theo hướng gần chuẩn Camunda nhất có thể.</p>
         </div>
-        <div class="prompt-guidance-rules">
-          <div class="guidance-card">
-            <strong>Prompt tốt</strong>
-            <span>Mỗi câu là một hành động, nêu actor nếu có thể, tách điều kiện bằng “Nếu...”.</span>
+        <div class="workspace-hero-stats">
+          <div class="hero-stat-card">
+            <strong id="prompt-word-count">0</strong>
+            <span>Từ trong mô tả</span>
           </div>
-          <div class="guidance-card">
-            <strong>Kết quả tạo ra</strong>
-            <span>Lane rõ trách nhiệm, end event chuẩn, XML tương thích Camunda Modeler.</span>
+          <div class="hero-stat-card">
+            <strong id="prompt-line-count">0</strong>
+            <span>Dòng nghiệp vụ</span>
+          </div>
+          <div class="hero-stat-card hero-stat-card--accent">
+            <strong id="prompt-quality-label">Đang chờ</strong>
+            <span>Chất lượng prompt</span>
           </div>
         </div>
       </section>
 
-      <!-- Process Title -->
-      <div class="input-group">
-        <label class="input-label" for="process-title">
-          Tên quy trình
-          <span class="input-label-hint">— Bắt buộc</span>
-        </label>
-        <input class="input-field" type="text" id="process-title"
-          placeholder="Ví dụ: Quy trình cấp phát thuốc nhà thuốc" />
-      </div>
+      <div class="input-layout">
+        <div class="input-main">
+          <section class="prompt-guidance">
+            <div class="prompt-guidance-copy">
+              <span class="prompt-guidance-kicker">Input guide</span>
+              <h2>Prompt càng rõ vai trò và nhánh điều kiện thì sơ đồ càng sạch.</h2>
+              <p>Ưu tiên mỗi câu là một hành động, ghi rõ ai làm, và tách điều kiện bằng “Nếu...”.</p>
+            </div>
+            <div class="prompt-guidance-rules">
+              <div class="guidance-card">
+                <strong>Prompt tốt</strong>
+                <span>Mỗi câu là một hành động, nêu actor nếu có thể, tách điều kiện bằng “Nếu...”.</span>
+              </div>
+              <div class="guidance-card">
+                <strong>Kết quả tạo ra</strong>
+                <span>Lane rõ trách nhiệm, end event chuẩn, XML tương thích Camunda Modeler.</span>
+              </div>
+            </div>
+          </section>
 
-      <!-- Quick Examples -->
-      <div class="input-group">
-        <div class="input-label">Ví dụ nhanh</div>
-        <div class="chips-row">
-          <button class="chip" data-example="purchase">🛒 Mua hàng online</button>
-          <button class="chip" data-example="pharmacy">💊 Nhà thuốc</button>
-          <button class="chip" data-example="leave">🏖 Xin nghỉ phép</button>
-          <button class="chip" data-example="invoice">🧾 Phê duyệt hóa đơn</button>
-        </div>
-      </div>
+          <section class="form-card">
+            <div class="form-card-header">
+              <div>
+                <div class="form-card-kicker">Step 1</div>
+                <h3>Mô tả quy trình nguồn</h3>
+              </div>
+              <div class="form-card-badge" id="prompt-status-badge">Chưa đủ dữ liệu</div>
+            </div>
 
-      <!-- Description -->
-      <div class="input-group">
-        <label class="input-label" for="process-desc">
-          Mô tả quy trình
-          <span class="input-label-hint">— Theo từng bước, ghi rõ actor (Khách hàng, Hệ thống…)</span>
-        </label>
-        <textarea class="input-field" id="process-desc" rows="9"
-          placeholder="Ví dụ:
+            <div class="input-group">
+              <label class="input-label" for="process-title">
+                Tên quy trình
+                <span class="input-label-hint">— Bắt buộc</span>
+              </label>
+              <input class="input-field" type="text" id="process-title"
+                placeholder="Ví dụ: Quy trình cấp phát thuốc nhà thuốc" />
+            </div>
+
+            <div class="input-group">
+              <div class="input-label">Ví dụ nhanh</div>
+              <div class="chips-row">
+                <button class="chip" data-example="purchase">🛒 Mua hàng online</button>
+                <button class="chip" data-example="pharmacy">💊 Nhà thuốc</button>
+                <button class="chip" data-example="leave">🏖 Xin nghỉ phép</button>
+                <button class="chip" data-example="invoice">🧾 Phê duyệt hóa đơn</button>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label" for="process-desc">
+                Mô tả quy trình
+                <span class="input-label-hint">— Theo từng bước, ghi rõ actor (Khách hàng, Hệ thống…)</span>
+              </label>
+              <textarea class="input-field" id="process-desc" rows="9"
+                placeholder="Ví dụ:
 Khách hàng đặt hàng trên website.
 Nhân viên bán hàng nhận đơn hàng và kiểm tra kho.
 Nếu hết hàng: Gửi thông báo hủy đơn cho khách.
 Nếu còn hàng: Đóng gói và chuyển cho shipper.
 Khách hàng nhận hàng và xác nhận."></textarea>
-      </div>
+              <div class="prompt-meta-row">
+                <span id="prompt-structure-hint">Mẹo: thêm actor ở đầu câu để lane chính xác hơn.</span>
+                <span id="prompt-char-count">0 ký tự</span>
+              </div>
+            </div>
+          </section>
+        </div>
 
+        <aside class="input-side">
+          <section class="side-card side-card--dark">
+            <div class="side-card-kicker">Checklist</div>
+            <h3>Trước khi bấm phân tích</h3>
+            <ul class="side-checklist">
+              <li>Mỗi dòng nên là 1 hành động chính.</li>
+              <li>Actor nên nằm ở đầu câu.</li>
+              <li>Điều kiện nên viết dạng “Nếu ...: ...”.</li>
+              <li>Luồng tự động nên ghi rõ “Hệ thống”.</li>
+            </ul>
+          </section>
+
+          <section class="side-card">
+            <div class="side-card-kicker">Kết quả mong đợi</div>
+            <h3>Hệ thống sẽ tạo</h3>
+            <div class="side-preview-list">
+              <div class="side-preview-item">
+                <strong>Lane theo vai trò</strong>
+                <span>Nhìn rõ trách nhiệm giữa người dùng, hệ thống và bộ phận nghiệp vụ.</span>
+              </div>
+              <div class="side-preview-item">
+                <strong>Review trước khi generate</strong>
+                <span>Có thể chỉnh actor, task type và điều kiện trước khi ra BPMN.</span>
+              </div>
+              <div class="side-preview-item">
+                <strong>XML sẵn cho Camunda</strong>
+                <span>Dùng để mở tiếp trong Camunda Modeler hoặc deploy workflow sau này.</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
     </div><!-- /input-body -->
 
     <!-- Footer -->
@@ -184,6 +252,13 @@ Khách hàng nhận hàng và xác nhận."></textarea>
 ═══════════════════════════════════════════════════ -->
 <div class="panel hidden" id="panel-step2">
   <div class="logic-panel">
+    <div class="review-banner">
+      <div>
+        <span class="form-card-kicker">Step 2</span>
+        <h3>Rà lại logic trước khi dựng BPMN</h3>
+      </div>
+      <p>Đây là điểm kiểm soát quan trọng nhất để tránh lane sai, gateway sai hoặc task bị gộp quá thô.</p>
+    </div>
 
     <!-- Toolbar -->
     <div class="logic-toolbar">

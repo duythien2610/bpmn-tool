@@ -4,8 +4,8 @@
    ============================================================ */
 
 :root {
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --bg: #f5f6fa;
+  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --bg: #eef2f7;
   --surface: #ffffff;
   --surface-2: #f8f9fc;
   --border: #e2e5ed;
@@ -30,7 +30,7 @@
   --hdr: 56px;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1265,3 +1265,279 @@ textarea.input-field { resize: vertical; min-height: 160px; line-height: 1.7; }
 .compliance-bar-fill.good { background: #059669; }
 .compliance-bar-fill.ok   { background: #d97706; }
 .compliance-bar-fill.bad  { background: #dc2626; }
+
+/* ── Camunda-first UX refresh ─────────────────────────────── */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 28%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+.designer-header,
+.stepper,
+.meta-bar,
+.logic-toolbar,
+.diagram-toolbar,
+.panel-footer,
+.diagram-footer {
+  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.header-logo {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%, #f97316 100%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.prompt-guidance {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.95fr);
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.9)),
+    linear-gradient(180deg, rgba(249, 115, 22, 0.16), transparent);
+  color: #e2e8f0;
+  box-shadow: 0 24px 44px rgba(15, 23, 42, 0.14);
+}
+
+.prompt-guidance-kicker {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.18);
+  color: #fdba74;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.prompt-guidance h1 {
+  font-size: 1.45rem;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  color: #f8fafc;
+}
+
+.prompt-guidance p {
+  color: #cbd5e1;
+  line-height: 1.65;
+  max-width: 56ch;
+}
+
+.prompt-guidance-rules {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+
+.guidance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.guidance-card strong {
+  color: #fff;
+  font-size: 0.88rem;
+}
+
+.guidance-card span {
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.logic-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.92);
+  flex-wrap: wrap;
+}
+
+.logic-summary-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #dbe3ee;
+  background: #fff;
+}
+
+.logic-summary-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.logic-summary-hint {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.diagram-canvas-wrap {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 247, 250, 0.98)),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: auto, 24px 24px, 24px 24px;
+}
+
+.diagram-insight-bar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 12;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagram-insight-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 600;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+.diagram-insight-pill--accent {
+  background: rgba(249, 115, 22, 0.12);
+  border-color: rgba(249, 115, 22, 0.28);
+  color: #c2410c;
+}
+
+.diagram-assistant {
+  right: 18px;
+  top: 18px;
+  border-radius: 18px;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.14);
+}
+
+.diagram-assistant.collapsed {
+  width: 220px;
+}
+
+.assistant-header {
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.btn-primary-solid {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%, #f97316 100%);
+  border-color: #0f172a;
+}
+
+.btn-primary-solid:hover {
+  background: linear-gradient(135deg, #111827 0%, #1f2937 70%, #ea580c 100%);
+}
+
+/* ── Camunda markers inside bpmn-js canvas ─────────────────── */
+.djs-element.camunda-pool .djs-visual > rect {
+  fill: #ffffff !important;
+  stroke: #64748b !important;
+  stroke-width: 1.8px !important;
+}
+
+.djs-element.camunda-lane .djs-visual > rect {
+  fill: rgba(248, 250, 252, 0.92) !important;
+  stroke: #cbd5e1 !important;
+  stroke-width: 1.35px !important;
+}
+
+.djs-element.camunda-user-task .djs-visual > rect,
+.djs-element.camunda-service-task .djs-visual > rect,
+.djs-element.camunda-manual-task .djs-visual > rect {
+  fill: #ffffff !important;
+  stroke: #0f172a !important;
+  stroke-width: 1.55px !important;
+}
+
+.djs-element.camunda-service-task .djs-visual > rect {
+  fill: #f8fafc !important;
+}
+
+.djs-element.camunda-start-event .djs-visual > circle {
+  fill: #ffffff !important;
+  stroke: #0f172a !important;
+  stroke-width: 2px !important;
+}
+
+.djs-element.camunda-intermediate-event .djs-visual > circle:first-child {
+  fill: #ffffff !important;
+  stroke: #334155 !important;
+  stroke-width: 1.8px !important;
+}
+
+.djs-element.camunda-end-event .djs-visual > circle:first-child {
+  fill: #ffffff !important;
+  stroke: #0f172a !important;
+  stroke-width: 4px !important;
+}
+
+.djs-element.camunda-gateway .djs-visual > polygon {
+  fill: #ffffff !important;
+  stroke: #0f172a !important;
+  stroke-width: 1.8px !important;
+}
+
+.djs-connection .djs-visual > path {
+  stroke: #334155 !important;
+  stroke-width: 1.7px !important;
+}
+
+@media (max-width: 1100px) {
+  .prompt-guidance {
+    grid-template-columns: 1fr;
+  }
+
+  .logic-summary-hint {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .input-body {
+    padding: 20px 16px;
+  }
+
+  .prompt-guidance {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .prompt-guidance h1 {
+    font-size: 1.18rem;
+  }
+
+  .diagram-insight-bar {
+    left: 12px;
+    top: 12px;
+    max-width: calc(100% - 24px);
+  }
+
+  .diagram-assistant {
+    right: 12px;
+    top: auto;
+    bottom: 12px;
+    max-width: calc(100% - 24px);
+  }
+}

@@ -109,7 +109,7 @@ function buildFlow(steps, actors) {
   // Main terminate end event
   const lastActor = steps.length > 0 ? ((steps[steps.length-1].actor||'').trim() || firstActor) : firstActor;
   const endId = uid('End');
-  nodes.push({ id: endId, type: 'endEvent', name: 'Kết thúc', actor: lastActor, terminate: true });
+  nodes.push({ id: endId, type: 'endEvent', name: 'Kết thúc', actor: lastActor });
 
   if (pendingYes) {
     flows.push({ id: pendingYes.yesFlowId, from: pendingYes.gwId, to: endId, name: 'Có', condition: 'Có' });
@@ -139,11 +139,7 @@ function buildSemanticXml(title, steps, actors) {
     const name = n.name ? ` name="${esc(n.name)}"` : '';
     const ext  = buildZeebeExtensions(n);
     if (n.type === 'startEvent') return `  <bpmn:startEvent id="${n.id}"${name} />`;
-    if (n.type === 'endEvent') {
-      if (n.terminate)
-        return `  <bpmn:endEvent id="${n.id}"${name}>\n    <bpmn:terminateEventDefinition id="${uid('TermDef')}" />\n  </bpmn:endEvent>`;
-      return `  <bpmn:endEvent id="${n.id}"${name} />`;
-    }
+    if (n.type === 'endEvent') return `  <bpmn:endEvent id="${n.id}"${name} />`;
     if (n.type === 'exclusiveGateway') return `  <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
     if (n.type === 'parallelGateway')  return `  <bpmn:parallelGateway id="${n.id}"${name} />`;
     if (n.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${n.id}"${name} />`;
@@ -309,10 +305,7 @@ async function generateBpmn({ title, steps }) {
     const name = n.name ? ` name="${esc(n.name)}"` : '';
     const ext  = buildZeebeExtensions(n);
     if (n.type === 'startEvent') return `  <bpmn:startEvent id="${n.id}"${name} />`;
-    if (n.type === 'endEvent') {
-      if (n.terminate) return `  <bpmn:endEvent id="${n.id}"${name}>\n    <bpmn:terminateEventDefinition id="${uid('TermDef')}" />\n  </bpmn:endEvent>`;
-      return `  <bpmn:endEvent id="${n.id}"${name} />`;
-    }
+    if (n.type === 'endEvent') return `  <bpmn:endEvent id="${n.id}"${name} />`;
     if (n.type === 'exclusiveGateway') return `  <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
     if (n.type === 'parallelGateway')  return `  <bpmn:parallelGateway id="${n.id}"${name} />`;
     if (n.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${n.id}"${name} />`;

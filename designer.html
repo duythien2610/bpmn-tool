@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Process Designer — BPMN Studio</title>
   <meta name="description" content="Design professional BPMN 2.0 diagrams from natural language descriptions." />
-  <!-- Google Fonts: Inter -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <!-- bpmn-js required CSS (fixes thick black arrows, palette, font icons) -->
   <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.14.0/dist/assets/diagram-js.css" />
   <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.14.0/dist/assets/bpmn-js.css" />
@@ -107,6 +108,23 @@
 <div class="panel" id="panel-step1">
   <div class="input-panel">
     <div class="input-body">
+      <section class="prompt-guidance">
+        <div class="prompt-guidance-copy">
+          <span class="prompt-guidance-kicker">Camunda-first BPMN</span>
+          <h1>Nhập mô tả tự do, hệ thống sẽ cố gắng bóc tách actor, lane và nhánh điều kiện.</h1>
+          <p>Ghi càng rõ vai trò và kết quả từng bước, sơ đồ càng gần chuẩn Camunda và ít phải sửa tay.</p>
+        </div>
+        <div class="prompt-guidance-rules">
+          <div class="guidance-card">
+            <strong>Prompt tốt</strong>
+            <span>Mỗi câu là một hành động, nêu actor nếu có thể, tách điều kiện bằng “Nếu...”.</span>
+          </div>
+          <div class="guidance-card">
+            <strong>Kết quả tạo ra</strong>
+            <span>Lane rõ trách nhiệm, end event chuẩn, XML tương thích Camunda Modeler.</span>
+          </div>
+        </div>
+      </section>
 
       <!-- Process Title -->
       <div class="input-group">
@@ -188,6 +206,22 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         </svg>
         Thêm bước
       </button>
+    </div>
+
+    <div class="logic-summary" id="logic-summary">
+      <div class="logic-summary-stat">
+        <span class="logic-summary-label">Lanes</span>
+        <strong id="logic-stat-lanes">0</strong>
+      </div>
+      <div class="logic-summary-stat">
+        <span class="logic-summary-label">Tasks</span>
+        <strong id="logic-stat-tasks">0</strong>
+      </div>
+      <div class="logic-summary-stat">
+        <span class="logic-summary-label">Gateways</span>
+        <strong id="logic-stat-gateways">0</strong>
+      </div>
+      <div class="logic-summary-hint" id="logic-lane-hint">Nhập mô tả để bắt đầu.</div>
     </div>
 
     <!-- Table -->
@@ -355,6 +389,11 @@ Khách hàng nhận hàng và xác nhận."></textarea>
     <div class="diagram-body">
       <!-- Canvas -->
       <div class="diagram-canvas-wrap">
+        <div class="diagram-insight-bar hidden" id="diagram-insight-bar">
+          <span class="diagram-insight-pill" id="diagram-insight-lanes">0 lanes</span>
+          <span class="diagram-insight-pill" id="diagram-insight-steps">0 steps</span>
+          <span class="diagram-insight-pill diagram-insight-pill--accent">Camunda visual mode</span>
+        </div>
         <div id="bpmn-canvas" class="bpmn-canvas-el"></div>
         <div class="bpmn-loading" id="bpmn-loading">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">

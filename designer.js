@@ -89,8 +89,52 @@ const state = {
   steps: [],
   xml: '',
   viewer: null,
-  assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') === '1',
+  assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') !== '0',
 };
+
+function getProcessStats(steps) {
+  const safeSteps = Array.isArray(steps) ? steps : [];
+  const lanes = [...new Set(safeSteps.map(step => String(step.actor || '').trim()).filter(Boolean))];
+  return {
+    laneCount: lanes.length,
+    taskCount: safeSteps.length,
+    gatewayCount: safeSteps.filter(step => step.gatewayType || step.condition).length,
+    lanes,
+  };
+}
+
+function renderLogicSummary(steps) {
+  const laneEl = document.getElementById('logic-stat-lanes');
+  const taskEl = document.getElementById('logic-stat-tasks');
+  const gatewayEl = document.getElementById('logic-stat-gateways');
+  const hintEl = document.getElementById('logic-lane-hint');
+  if (!laneEl || !taskEl || !gatewayEl || !hintEl) return;
+
+  const stats = getProcessStats(steps);
+  laneEl.textContent = String(stats.laneCount);
+  taskEl.textContent = String(stats.taskCount);
+  gatewayEl.textContent = String(stats.gatewayCount);
+
+  if (stats.taskCount === 0) {
+    hintEl.textContent = 'Nhập mô tả để bắt đầu.';
+  } else if (stats.laneCount <= 1) {
+    hintEl.textContent = 'Hiện mới có 1 lane. Nếu quy trình có nhiều vai trò, hãy chỉnh cột Actor trước khi generate.';
+  } else {
+    hintEl.textContent = `Lane: ${stats.lanes.join(' · ')}`;
+  }
+}
+
+function renderDiagramInsights(steps) {
+  const bar = document.getElementById('diagram-insight-bar');
+  const lanes = document.getElementById('diagram-insight-lanes');
+  const tasks = document.getElementById('diagram-insight-steps');
+  if (!bar || !lanes || !tasks) return;
+
+  const stats = getProcessStats(steps);
+  bar.classList.toggle('hidden', stats.taskCount === 0);
+  lanes.textContent = `${stats.laneCount} lane${stats.laneCount === 1 ? '' : 's'}`;
+  tasks.textContent = `${stats.taskCount} step${stats.taskCount === 1 ? '' : 's'}`;
+}
 
 /* ─── STEP NAVIGATION ─────────────────────────────────────────── */
 function goToStep(n) {
@@ -138,6 +182,7 @@ function renderTable(steps) {
   tbody.innerHTML = '';
   const label = document.getElementById('steps-count-label');
   if (label) label.textContent = steps.length > 0 ? `${steps.length} bước được trích xuất.` : '';
+  renderLogicSummary(steps);
 
   const TASK_OPTIONS = [
     ['task', 'Task'],
@@ -284,6 +329,7 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
     state.xml = xml;
     document.getElementById('diagram-title-display').textContent = state.title;
     document.getElementById('xml-preview').textContent = xml;
+    renderDiagramInsights(state.steps);
     goToStep(3);
     await renderBpmn(xml);
   } catch (e) {
@@ -303,14 +349,38 @@ document.getElementById('input-file-bpmn').addEventListener('change', async (e) 
   if (!file) return;
   const xml = await file.text();
   state.xml = xml;
+  state.steps = [];
   state.title = file.name.replace(/\.(bpmn|xml)$/i, '');
   document.getElementById('diagram-title-display').textContent = state.title;
   document.getElementById('xml-preview').textContent = xml;
+  renderDiagramInsights(state.steps);
   goToStep(3);
   await renderBpmn(xml);
   toast(`Đã import: ${file.name}`, 'success');
   e.target.value = '';
 });
+
+function applyCamundaMarkers(viewer) {
+  const canvas = viewer.get('canvas');
+  const registry = viewer.get('elementRegistry');
+
+  registry.getAll().forEach(element => {
+    const type = element.type;
+    if (type === 'bpmn:Participant') canvas.addMarker(element.id, 'camunda-pool');
+    if (type === 'bpmn:Lane') canvas.addMarker(element.id, 'camunda-lane');
+    if (type === 'bpmn:UserTask') canvas.addMarker(element.id, 'camunda-user-task');
+    if (type === 'bpmn:ServiceTask') canvas.addMarker(element.id, 'camunda-service-task');
+    if (type === 'bpmn:ManualTask') canvas.addMarker(element.id, 'camunda-manual-task');
+    if (type === 'bpmn:StartEvent') canvas.addMarker(element.id, 'camunda-start-event');
+    if (type === 'bpmn:EndEvent') canvas.addMarker(element.id, 'camunda-end-event');
+    if (type === 'bpmn:IntermediateCatchEvent' || type === 'bpmn:IntermediateThrowEvent') {
+      canvas.addMarker(element.id, 'camunda-intermediate-event');
+    }
+    if (type === 'bpmn:ExclusiveGateway' || type === 'bpmn:ParallelGateway' || type === 'bpmn:InclusiveGateway' || type === 'bpmn:EventBasedGateway') {
+      canvas.addMarker(element.id, 'camunda-gateway');
+    }
+  });
+}
 
 /* ─── RENDER BPMN (bpmn-js modeler, supports lanes+participants) ── */
 async function renderBpmn(xml) {
@@ -338,6 +408,7 @@ async function renderBpmn(xml) {
     state.viewer = viewer;
     
     await viewer.importXML(xml);
+    applyCamundaMarkers(viewer);
 
     await new Promise(resolve => setTimeout(resolve, 150)); // let SVG elements mount properly before computing bboxes
     
@@ -355,6 +426,7 @@ async function renderBpmn(xml) {
     state._selectedElement = null;
     populatePropsPanel(null);
     attachSelectionListener(viewer);
+    renderDiagramInsights(state.steps);
 
     loading.classList.add('hidden');
   } catch (err) {
@@ -829,7 +901,7 @@ document.getElementById('btn-auto-layout')?.addEventListener('click', async () =
   toast('Đang canh chỉnh layout...', 'info');
   try {
     if (serverAvailable) {
-      const res = await fetch(`${API_BASE}/layout`, {
+      const res = await fetch(`${API_BASE}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xml: state.xml }),
@@ -850,8 +922,9 @@ document.getElementById('btn-auto-layout')?.addEventListener('click', async () =
     toast('Layout được làm sạch (offline mode)', 'info');
   } catch(e) {
     toast('Lỗi auto layout: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
   }
-  btn.disabled = false;
 });
 
 /* ─── ALIGN ELEMENTS ─────────────────────────────────────────────── */
@@ -919,6 +992,8 @@ document.getElementById('btn-start-over').addEventListener('click', () => {
   document.getElementById('process-desc').value = '';
   state.steps = []; state.xml = '';
   if (state.viewer) { state.viewer.destroy(); state.viewer = null; }
+  renderLogicSummary([]);
+  renderDiagramInsights([]);
   goToStep(1);
 });
 
@@ -927,6 +1002,7 @@ function parseFallback(title, desc) {
   const ACTORS = [
     { re: /khách\s*hàng|customer|client|người\s*dùng|user/i, a: 'Khách hàng' },
     { re: /nhân\s*viên\s*bán|sales|bán\s*hàng/i, a: 'Nhân viên bán hàng' },
+    { re: /\bnhân\s*viên\b|\bstaff\b|\bemployee\b/i, a: 'Nhân viên' },
     { re: /dược\s*sĩ|pharmacist/i, a: 'Dược sĩ' },
     { re: /kỹ\s*thuật\s*viên|technician/i, a: 'Kỹ thuật viên' },
     { re: /hệ\s*thống|system|tự\s*động|auto/i, a: 'Hệ thống' },
@@ -937,7 +1013,18 @@ function parseFallback(title, desc) {
     { re: /shipper|giao\s*hàng/i, a: 'Shipper' },
     { re: /bác\s*sĩ|doctor/i, a: 'Bác sĩ' },
   ];
-  const lines = desc.split('\n').map(l => l.trim()).filter(l => l.length > 4);
+  const INFER = [
+    { re: /đặt\s*hàng|nộp\s*đơn|thanh\s*toán|xác\s*nhận|nhận\s*hàng/i, a: 'Khách hàng' },
+    { re: /gửi\s*(email|thông\s*báo|sms)|cập\s*nhật|tạo\s*hóa\s*đơn|ghi\s*nhận|tự\s*động/i, a: 'Hệ thống' },
+    { re: /phê\s*duyệt|xem\s*xét|approve|review/i, a: 'Quản lý' },
+    { re: /kiểm\s*tra\s*kho|đóng\s*gói|xuất\s*kho/i, a: 'Kho' },
+    { re: /giao\s*hàng|deliver/i, a: 'Shipper' },
+  ];
+  const lines = desc
+    .split(/\n+/)
+    .flatMap(l => l.split(/(?<=[\.\?!;])\s+|(?=Sau đó\b)|(?=Tiếp theo\b)|(?=Then\b)|(?=Next\b)/i))
+    .map(l => l.trim())
+    .filter(l => l.length > 4);
   let lastActor = 'Người dùng', n = 1;
   const steps = [];
   for (const line of lines) {
@@ -945,6 +1032,11 @@ function parseFallback(title, desc) {
     if (!clean) continue;
     let actor = null;
     for (const { re, a } of ACTORS) { if (re.test(clean)) { actor = a; break; } }
+    if (!actor) {
+      for (const { re, a } of INFER) {
+        if (re.test(clean)) { actor = a; break; }
+      }
+    }
     actor = actor || lastActor;
     lastActor = actor;
     const isCond = /^(nếu|if|khi|when)\b/i.test(clean);
@@ -957,8 +1049,9 @@ function parseFallback(title, desc) {
     let type = 'task';
     if (/phê\s*duyệt|approve|review|xem\s*xét/i.test(action)) type = 'userTask';
     if (/hệ\s*thống|tự\s*động|auto|tạo|generate/i.test(action)) type = 'serviceTask';
+    if (/tiếp\s*nhận|nhận\s*đơn\s*mới|nhận\s*hàng|nhận\s*thông\s*báo|receive/i.test(action)) type = 'receiveTask';
     if (/gửi\s*(email|thông|sms)|send/i.test(action)) type = 'sendTask';
-    steps.push({ step: n++, actor, action: action.substring(0, 100), condition: condition.substring(0, 80), type });
+    steps.push({ step: n++, actor, action: action.substring(0, 100), condition: condition.substring(0, 80), type, gatewayType: condition ? 'exclusiveGateway' : '' });
   }
   return steps.length > 0 ? steps : [
     { step: 1, actor: 'Người dùng', action: title, condition: '', type: 'task' },
@@ -980,6 +1073,8 @@ checkServer();
 setInterval(checkServer, 12000);
 syncAssistantState();
 initPropsPanel();
+renderLogicSummary([]);
+renderDiagramInsights([]);
 goToStep(1);
 
 /* ════════════════════════════════════════════════════════════════
@@ -1167,7 +1262,7 @@ document.getElementById('btn-analyze-diagram').addEventListener('click', async (
     if (state.viewer) {
       try { const r = await state.viewer.saveXML({ format: true }); xml = r.xml; } catch(e) { /* use state.xml */ }
     }
-    const res  = await fetch('/api/analyze', {
+    const res  = await fetch(`${API_BASE}/analyze`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ xml })
     });
@@ -1239,7 +1334,7 @@ function renderAnalyzeModal(data, xml) {
         <span>${(s.endEvents||0) > 0 ? '✅' : '❌'} End Event</span>
         <span>${(s.lanes||0) > 0 ? '✅' : '⚠️'} Swimlanes</span>
         <span>${(s.conditionalFlows||0) > 0 ? '✅' : '⚠️'} Conditions</span>
-        <span>${xml.includes('terminateEventDefinition') ? '✅' : '⚠️'} Terminate End</span>
+        <span>${xml.includes('<bpmn:endEvent') ? '✅' : '⚠️'} Camunda-style End Event</span>
       </div>
     </div>
   `;
@@ -1251,7 +1346,7 @@ document.getElementById('btn-validate-diagram').addEventListener('click', async 
   if (!modeler) { toast('⚠️ Không có diagram', 'warn'); return; }
   try {
     const { xml } = await modeler.saveXML({ format: true });
-    const res  = await fetch('/api/validate', {
+    const res  = await fetch(`${API_BASE}/validate`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ xml })
     });
@@ -1300,5 +1395,3 @@ document.getElementById('btn-export-png').addEventListener('click', async () => 
     toast('❌ Export error: ' + e.message, 'error');
   }
 });
-
-

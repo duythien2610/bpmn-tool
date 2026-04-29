@@ -101,7 +101,7 @@ const BpmnEngine = (() => {
 
         // "No" branch → reject end event
         const noEndId = uid('End');
-        nodes.push({ id: noEndId, type: 'endEvent', name: 'Kết thúc (từ chối)', actor });
+        nodes.push({ id: noEndId, type: 'endEvent', name: 'Kết thúc (từ chối)', actor, branchType: 'reject', gatewayRef: gwId });
         flows.push({ id: uid('Flow'), from: gwId, to: noEndId, name: 'Không', condition: 'Không' });
 
         // "Yes" branch → will be connected when next step is processed
@@ -139,10 +139,17 @@ const BpmnEngine = (() => {
     nodes.forEach(n => {
       const { w, h } = sz(n.type);
       const laneY  = laneYMap[n.actor] || POOL_TOP_Y;
-      const cx     = curX + w / 2;
-      const cy     = laneY + LANE_H / 2;
+      let cx       = curX + w / 2;
+      let cy       = laneY + LANE_H / 2;
+
+      if (n.branchType === 'reject' && n.gatewayRef && posMap[n.gatewayRef]) {
+        cx = posMap[n.gatewayRef].cx;
+        cy = laneY + LANE_H - h / 2 - 18;
+      } else {
+        curX += w + H_GAP;
+      }
+
       posMap[n.id] = { x: Math.round(cx - w/2), y: Math.round(cy - h/2), w, h, cx, cy, actor: n.actor };
-      curX += w + H_GAP;
     });
 
     return { posMap, laneYMap, totalW: curX - POOL_X + 20 };
@@ -259,7 +266,12 @@ const BpmnEngine = (() => {
       const tgtMidY   = tgtP.y + Math.round(tgtP.h / 2);
 
       let waypoints;
-      if (Math.abs(srcMidY - tgtMidY) < 5) {
+      if (f.condition === 'Không' && tgtN?.branchType === 'reject') {
+        const srcBottomY = srcP.y + srcP.h;
+        const tgtTopY = tgtP.y;
+        const branchX = srcP.x + Math.round(srcP.w / 2);
+        waypoints = `      <di:waypoint x="${branchX}" y="${srcBottomY}" />\n      <di:waypoint x="${branchX}" y="${tgtTopY}" />`;
+      } else if (Math.abs(srcMidY - tgtMidY) < 5) {
         // Same lane — straight
         waypoints = `      <di:waypoint x="${srcRightX}" y="${srcMidY}" />\n      <di:waypoint x="${tgtLeftX}" y="${tgtMidY}" />`;
       } else {

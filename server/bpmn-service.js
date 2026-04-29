@@ -96,7 +96,7 @@ function buildFlow(steps, actors) {
 
       // NO branch → reject end
       const noEndId = uid('End');
-      nodes.push({ id: noEndId, type: 'endEvent', name: 'Kết thúc (từ chối)', actor });
+      nodes.push({ id: noEndId, type: 'endEvent', name: 'Kết thúc (từ chối)', actor, branchType: 'reject', gatewayRef: gwId });
       flows.push({ id: uid('Flow'), from: gwId, to: noEndId, name: 'Không', condition: 'Không' });
 
       pendingYes = { gwId, yesFlowId: uid('Flow') };
@@ -219,6 +219,7 @@ function buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors) {
   const laneYMap = {};
   actors.forEach((a,i) => { laneYMap[a] = START_Y + i * LANE_H; });
   const totalH = actors.length * LANE_H;
+  const posById = {};
 
   const participantId = uid('Participant');
   let di = '';
@@ -234,10 +235,19 @@ function buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors) {
 
   // Elements
   nodes.forEach(n => {
-    const cx = colMap[n.id] || (COL_X0 + 50);
+    let cx = colMap[n.id] || (COL_X0 + 50);
     const ly = laneYMap[n.actor || actors[0]] || START_Y;
     const {w,h} = elSize(n.type);
-    const x = Math.round(cx - w/2), y = Math.round(ly + LANE_H/2 - h/2);
+    let x = Math.round(cx - w/2);
+    let y = Math.round(ly + LANE_H/2 - h/2);
+
+    if (n.branchType === 'reject' && n.gatewayRef && colMap[n.gatewayRef]) {
+      cx = colMap[n.gatewayRef];
+      x = Math.round(cx - w / 2);
+      y = Math.round(ly + LANE_H - h - 18);
+    }
+
+    posById[n.id] = { x, y, w, h, cx: Math.round(x + w / 2), cy: Math.round(y + h / 2) };
 
     if (n.type === 'exclusiveGateway') {
       di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n`;
@@ -253,14 +263,22 @@ function buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors) {
   flows.forEach(f => {
     const src = nodeById[f.from], tgt = nodeById[f.to];
     if (!src || !tgt) return;
-    const srcY = (laneYMap[src.actor || actors[0]] || START_Y) + LANE_H/2;
-    const tgtY = (laneYMap[tgt.actor || actors[0]] || START_Y) + LANE_H/2;
-    const srcCX = colMap[f.from] || 0, tgtCX = colMap[f.to] || 0;
-    const srcR = Math.round(srcCX + elSize(src.type).w/2);
-    const tgtL = Math.round(tgtCX - elSize(tgt.type).w/2);
+    const srcPos = posById[f.from];
+    const tgtPos = posById[f.to];
+    const srcY = srcPos ? srcPos.cy : (laneYMap[src.actor || actors[0]] || START_Y) + LANE_H / 2;
+    const tgtY = tgtPos ? tgtPos.cy : (laneYMap[tgt.actor || actors[0]] || START_Y) + LANE_H / 2;
+    const srcCX = srcPos ? srcPos.cx : (colMap[f.from] || 0);
+    const tgtCX = tgtPos ? tgtPos.cx : (colMap[f.to] || 0);
+    const srcR = srcPos ? Math.round(srcPos.x + srcPos.w) : Math.round(srcCX + elSize(src.type).w / 2);
+    const tgtL = tgtPos ? Math.round(tgtPos.x) : Math.round(tgtCX - elSize(tgt.type).w / 2);
 
     let wp;
-    if (Math.abs(srcY - tgtY) < 5) {
+    if (f.condition === 'Không' && tgt.branchType === 'reject' && srcPos && tgtPos) {
+      const srcBottomY = Math.round(srcPos.y + srcPos.h);
+      const tgtTopY = Math.round(tgtPos.y);
+      const branchX = Math.round(srcPos.cx);
+      wp = `        <di:waypoint x="${branchX}" y="${srcBottomY}" />\n        <di:waypoint x="${branchX}" y="${tgtTopY}" />`;
+    } else if (Math.abs(srcY - tgtY) < 5) {
       wp = `        <di:waypoint x="${srcR}" y="${Math.round(srcY)}" />\n        <di:waypoint x="${tgtL}" y="${Math.round(srcY)}" />`;
     } else {
       const midX = Math.round((srcR + tgtL) / 2);

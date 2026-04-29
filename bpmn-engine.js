@@ -222,12 +222,28 @@ const BpmnEngine = (() => {
     nodes.forEach(n => {
       const p = posMap[n.id];
       if (!p) return;
-      if (n.type === 'exclusiveGateway') {
-        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-      } else if (n.type === 'startEvent' || n.type === 'endEvent') {
-        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel>\n        <dc:Bounds x="${p.x - 10}" y="${p.y + p.h + 4}" width="${p.w + 20}" height="14" />\n      </bpmndi:BPMNLabel>\n    </bpmndi:BPMNShape>\n`;
+      
+      let colorAttrs = '';
+      if (n.type === 'startEvent') {
+        colorAttrs = ' bioc:stroke="#22c55e" bioc:fill="#bbf7d0"'; // Green
+      } else if (n.type === 'endEvent') {
+        colorAttrs = ' bioc:stroke="#ef4444" bioc:fill="#fecaca"'; // Red
+      } else if (n.type === 'exclusiveGateway' || n.type === 'parallelGateway' || n.type === 'inclusiveGateway') {
+        colorAttrs = ' bioc:stroke="#eab308" bioc:fill="#fef08a"'; // Yellow
+      } else if (n.type === 'userTask') {
+        colorAttrs = ' bioc:stroke="#3b82f6" bioc:fill="#bfdbfe"'; // Blue
+      } else if (n.type === 'serviceTask' || n.type === 'sendTask') {
+        colorAttrs = ' bioc:stroke="#8b5cf6" bioc:fill="#ddd6fe"'; // Purple
       } else {
-        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n    </bpmndi:BPMNShape>\n`;
+        colorAttrs = ' bioc:stroke="#64748b" bioc:fill="#f8fafc"'; // Gray default
+      }
+
+      if (n.type === 'exclusiveGateway') {
+        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true"${colorAttrs}>\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
+      } else if (n.type === 'startEvent' || n.type === 'endEvent') {
+        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}"${colorAttrs}>\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel>\n        <dc:Bounds x="${p.x - 10}" y="${p.y + p.h + 4}" width="${p.w + 20}" height="14" />\n      </bpmndi:BPMNLabel>\n    </bpmndi:BPMNShape>\n`;
+      } else {
+        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}"${colorAttrs}>\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n    </bpmndi:BPMNShape>\n`;
       }
     });
 
@@ -273,6 +289,7 @@ const BpmnEngine = (() => {
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
   xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+  xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0"
   id="Definitions_1"
   targetNamespace="http://bpmn.io/schema/bpmn"
   exporter="BPMN Studio"

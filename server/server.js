@@ -8,6 +8,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
+
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
 const { generateBpmn, importAndLayoutBpmn, validateBpmn } = require('./bpmn-service');
 const { parseDescriptionToStructure } = require('./parser');
 
@@ -33,7 +38,7 @@ app.post('/api/parse', async (req, res) => {
     if (!description) {
       return res.status(400).json({ error: 'description is required' });
     }
-    const structure = parseDescriptionToStructure(title || 'My Process', description);
+    const structure = await parseDescriptionToStructure(title || 'My Process', description);
     res.json({ success: true, structure });
   } catch (err) {
     console.error('[/api/parse]', err);
@@ -137,60 +142,48 @@ app.post('/api/assistant', async (req, res) => {
     let newXml = xml || '';
     let reply  = '';
 
-    // ── Intent: rename element ───────────────────────────────────────────
-    const renameMatch = message.match(/(?:đổi tên|rename|đổi|change name of?)\s+["']?([^"']+?)["']?\s+(?:thành|to|→)\s+["']?([^"']+?)["']?$/i);
-    if (renameMatch && xml) {
-      const [, oldName, newName] = renameMatch;
-      const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`name="${escaped}"`, 'g');
-      if (re.test(newXml)) {
-        newXml = newXml.replace(new RegExp(`name="${escaped}"`, 'g'), `name="${newName}"`);
-        reply  = `✅ Đã đổi tên "${oldName}" → "${newName}".`;
-      } else {
-        reply = `⚠️ Không tìm thấy phần tử có tên "${oldName}" trong sơ đồ.`;
-        newXml = '';
+    try {
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error('Chưa cấu hình GEMINI_API_KEY trong file .env');
       }
-    }
 
-    // ── Intent: set executable ───────────────────────────────────────────
-    else if (/isExecutable|set.*executable|camunda.*deploy|deploy/i.test(msg)) {
-      if (xml) {
-        newXml = newXml.replace(/isExecutable="false"/, 'isExecutable="true"');
-        reply  = '✅ Đã set isExecutable="true" — sẵn sàng deploy lên Camunda.';
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      
+      const prompt = `
+Bạn là một chuyên gia BPMN 2.0 (Camunda).
+Người dùng đang có một sơ đồ BPMN (XML) và yêu cầu chỉnh sửa sơ đồ đó thông qua câu lệnh: "${message}"
+
+XML SƠ ĐỒ HIỆN TẠI:
+\`\`\`xml
+${newXml}
+\`\`\`
+
+NHIỆM VỤ CỦA BẠN:
+1. Đọc XML và hiểu cấu trúc hiện tại.
+2. Sửa đổi trực tiếp mã XML dựa theo yêu cầu của người dùng (ví dụ: đổi tên phần tử, thay đổi loại task, thêm/xóa điều kiện rẽ nhánh, đánh dấu isExecutable...).
+3. Tuyệt đối giữ nguyên không gian tên (namespaces), tọa độ (nếu có thể) và các thuộc tính khác không liên quan.
+4. Trả về cho tôi duy nhất một object JSON có 2 trường (không bọc trong markdown codeblock \`\`\`json, chỉ trả về chuỗi JSON):
+{
+  "reply": "Câu trả lời giải thích ngắn gọn bằng tiếng Việt những gì bạn đã sửa",
+  "xml": "Mã XML đã được sửa lại hoàn chỉnh (nếu có sửa đổi, nếu không sửa thì để rỗng)"
+}
+`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      
+      // Parse JSON from Gemini response (clean markdown if any)
+      const cleanJson = text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+      const parsed = JSON.parse(cleanJson);
+      
+      reply = parsed.reply || "Đã xử lý xong yêu cầu của bạn.";
+      if (parsed.xml && parsed.xml.trim() !== '') {
+        newXml = parsed.xml;
       }
-    }
 
-    // ── Intent: add step / task ──────────────────────────────────────────
-    else if (/thêm (bước|task|step)|add (step|task)/i.test(msg)) {
-      reply = '💡 Để thêm task: Kéo Task từ palette bên trái canvas vào swimlane mong muốn, hoặc quay lại Step 2 → Thêm bước → Tạo lại sơ đồ.';
-      newXml = '';
-    }
-
-    // ── Intent: validate / check ─────────────────────────────────────────
-    else if (/validate|kiểm tra|check compliance/i.test(msg)) {
-      const { validateBpmn } = require('./bpmn-service');
-      const result = await validateBpmn(xml || '');
-      const issueText = result.issues.length
-        ? result.issues.map(i => `${i.severity === 'error' ? '🔴' : i.severity === 'warning' ? '🟡' : '🔵'} ${i.message}`).join('\n')
-        : '✅ Không có vấn đề.';
-      reply  = `**BPMN Validation** (${result.valid ? 'PASSED' : 'FAILED'})\n${issueText}`;
-      newXml = '';
-    }
-
-    // ── Intent: layout / auto-layout ─────────────────────────────────────
-    else if (/layout|canh chỉnh|arrange/i.test(msg)) {
-      if (xml) {
-        const { importAndLayoutBpmn } = require('./bpmn-service');
-        const result = await importAndLayoutBpmn(xml);
-        newXml = result.xml;
-        reply  = '✅ Đã auto-layout lại sơ đồ.';
-      }
-    }
-
-    // ── Fallback: explain intent ──────────────────────────────────────────
-    else {
-      reply = `🤖 Tôi hiểu yêu cầu của bạn: "${message}".\n\nHiện tại tôi hỗ trợ các lệnh:\n• Đổi tên: "Đổi tên 'Kiểm tra đơn' thành 'Xác nhận đơn thuốc'"\n• Validate: "Validate sơ đồ"\n• Layout: "Auto-layout lại"\n• Deploy: "Set executable để deploy Camunda"\n\nCác thay đổi phức tạp hơn (thêm/xóa gateway, kết nối flow mới), hãy chỉnh trực tiếp trên canvas.`;
-      newXml = '';
+    } catch (aiError) {
+      console.error('Lỗi gọi Gemini API:', aiError);
+      reply = \`🤖 Đã có lỗi kết nối với AI: \${aiError.message}\`;
     }
 
     res.json({ success: true, reply, xml: newXml || undefined });

@@ -2,8 +2,9 @@
  * BPMN Studio — Natural Language Parser
  * 
  * Parse mô tả bằng tiếng Việt / tiếng Anh → structured steps
- * Cải tiến mạnh so với phiên bản cũ trong designer.js
+ * Sử dụng Google Gemini AI để phân tích thông minh
  */
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // ── ACTOR PATTERNS ─────────────────────────────────────────────────────────
 const ACTOR_PATTERNS = [
@@ -62,9 +63,44 @@ const SKIP_PATTERNS = [
  * Parse natural language process description into structured steps
  * @param {string} title - Process title
  * @param {string} description - Free-form text
- * @returns {{ steps: Array, actors: string[] }}
+ * @returns {Promise<{ steps: Array, actors: string[] }>}
  */
-function parseDescriptionToStructure(title, description) {
+async function parseDescriptionToStructure(title, description) {
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      
+      const prompt = `Bạn là chuyên gia phân tích nghiệp vụ và chuẩn BPMN 2.0.
+Hãy đọc đoạn mô tả quy trình dưới đây và trích xuất ra các bước theo đúng trình tự.
+Quy trình: "${title}"
+Mô tả:
+"${description}"
+
+YÊU CẦU:
+1. Xác định đúng tác nhân (actor) cho từng bước. Nếu không rõ, hãy dùng "Hệ thống" hoặc "Người dùng".
+2. Tóm tắt hành động (action) ngắn gọn, dễ hiểu.
+3. Nếu có rẽ nhánh (nếu, trong trường hợp...), hãy ghi vào trường condition và thêm gatewayType là "exclusiveGateway".
+4. Phân loại loại task (type) chuẩn BPMN: task, userTask, serviceTask, sendTask, receiveTask, manualTask, scriptTask, businessRuleTask.
+
+TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (Không bọc trong markdown \`\`\`json):
+{
+  "steps": [
+    { "step": 1, "actor": "Tên tác nhân", "action": "Mô tả ngắn gọn", "condition": "", "type": "userTask", "gatewayType": "" }
+  ],
+  "actors": ["Tác nhân 1", "Tác nhân 2"]
+}`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const cleanJson = text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim();
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      console.error("Gemini parse failed, fallback to regex:", e);
+    }
+  }
+
+  // Fallback regex parsing
   const rawLines = description
     .split(/\n/)
     .map(l => l.trim())

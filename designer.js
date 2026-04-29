@@ -516,6 +516,9 @@ document.addEventListener('keydown', (e) => {
       if (sel.length > 0) state.viewer.get('modeling').removeElements(sel);
     } catch(err) {}
   }
+  if (e.key === 'Escape') {
+    closePropsPanel();
+  }
 });
 
 
@@ -537,21 +540,43 @@ document.getElementById('btn-toggle-xml').addEventListener('click', () => {
   sidebar.classList.toggle('hidden');
 });
 
+function openPropsPanel() {
+  const panel = document.getElementById('props-panel');
+  const overlay = document.getElementById('props-overlay');
+  const btn   = document.getElementById('btn-toggle-props');
+  if (!panel) return;
+  panel.classList.remove('hidden');
+  panel.setAttribute('aria-hidden', 'false');
+  overlay?.classList.remove('hidden');
+  btn?.classList.add('btn-icon--active');
+  btn?.setAttribute('aria-pressed', 'true');
+}
+
+function closePropsPanel() {
+  const panel = document.getElementById('props-panel');
+  const overlay = document.getElementById('props-overlay');
+  const btn = document.getElementById('btn-toggle-props');
+  panel?.classList.add('hidden');
+  panel?.setAttribute('aria-hidden', 'true');
+  overlay?.classList.add('hidden');
+  btn?.classList.remove('btn-icon--active');
+  btn?.setAttribute('aria-pressed', 'false');
+}
+
 /* ─── TOGGLE PROPERTIES PANEL ─────────────────────────────────────── */
 document.getElementById('btn-toggle-props')?.addEventListener('click', () => {
   const panel = document.getElementById('props-panel');
-  const btn   = document.getElementById('btn-toggle-props');
-  const isHidden = panel.classList.toggle('hidden');
-  btn.classList.toggle('btn-icon--active', !isHidden);
-  btn.setAttribute('aria-pressed', String(!isHidden));
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) {
+    openPropsPanel();
+    populatePropsPanel(state._selectedElement || null);
+  } else {
+    closePropsPanel();
+  }
 });
 
-document.getElementById('btn-close-props')?.addEventListener('click', () => {
-  document.getElementById('props-panel').classList.add('hidden');
-  const btn = document.getElementById('btn-toggle-props');
-  btn?.classList.remove('btn-icon--active');
-  btn?.setAttribute('aria-pressed', 'false');
-});
+document.getElementById('btn-close-props')?.addEventListener('click', closePropsPanel);
+document.getElementById('props-overlay')?.addEventListener('click', closePropsPanel);
 
 /* ─── TOGGLE ASSISTANT ──────────────────────────────────────────────── */
 document.getElementById('btn-toggle-assistant')?.addEventListener('click', () => {
@@ -924,6 +949,7 @@ function attachSelectionListener(modeler) {
   const eventBus = modeler.get('eventBus');
   eventBus.on('selection.changed', ({ newSelection }) => {
     if (newSelection.length === 1) {
+      openPropsPanel();
       populatePropsPanel(newSelection[0]);
     } else {
       populatePropsPanel(null);

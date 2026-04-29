@@ -460,7 +460,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         <div class="toolbar-sep"></div>
 
         <!-- Toggle Properties Panel -->
-        <button class="btn-icon btn-icon--active" id="btn-toggle-props" title="Properties Panel" aria-pressed="true">
+        <button class="btn-icon" id="btn-toggle-props" title="Mở Element Editor" aria-pressed="false">
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
             <rect x="1" y="1" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.3"/>
             <path d="M10 1v13" stroke="currentColor" stroke-width="1.3"/>
@@ -540,7 +540,8 @@ Khách hàng nhận hàng và xác nhận."></textarea>
       </div>
 
       <!-- ══ PROPERTIES PANEL (Camunda-style right sidebar) ══ -->
-      <aside class="props-panel" id="props-panel">
+      <div class="props-overlay hidden" id="props-overlay"></div>
+      <aside class="props-panel hidden" id="props-panel" aria-hidden="true">
         <!-- Header -->
         <div class="props-header">
           <div class="props-header-left">
@@ -548,6 +549,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
             <div>
               <div class="props-element-type" id="props-element-type">No Selection</div>
               <div class="props-element-id" id="props-element-id">—</div>
+              <div class="props-element-help">Chọn phần tử trên sơ đồ để chỉnh nhanh thuộc tính.</div>
             </div>
           </div>
           <button class="btn-icon" id="btn-close-props" title="Đóng panel" style="width:24px;height:24px;flex-shrink:0">

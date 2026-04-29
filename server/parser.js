@@ -72,23 +72,25 @@ async function parseDescriptionToStructure(title, description) {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       
       const prompt = `Bạn là chuyên gia phân tích nghiệp vụ và chuẩn BPMN 2.0 (Camunda).
-Hãy đọc đoạn mô tả quy trình dưới đây và trích xuất ra các bước theo đúng trình tự.
+Hãy đọc đoạn mô tả quy trình dưới đây và trích xuất ra các bước theo đúng trình tự. CHIA NHỎ MÔ TẢ THÀNH NHIỀU BƯỚC, KHÔNG GỘP CHUNG VÀO 1 BƯỚC!
+
 Quy trình: "${title}"
 Mô tả:
 "${description}"
 
 YÊU CẦU:
-1. Xác định đúng tác nhân (actor) cho từng bước. Nếu không rõ, hãy dùng "Hệ thống" hoặc "Người dùng".
+1. Chia nhỏ quy trình thành nhiều bước (step 1, 2, 3...) tuần tự. Mỗi bước là một hành động đơn lẻ. Xác định đúng tác nhân (actor) cho từng bước. Nếu không rõ, hãy dùng "Hệ thống" hoặc "Người dùng".
 2. Tóm tắt hành động (action) ngắn gọn, dễ hiểu.
 3. Rẽ nhánh (Gateways): Nếu là rẽ nhánh điều kiện (nếu, trong trường hợp), thêm gatewayType "exclusiveGateway". Nếu thực hiện song song đồng thời, dùng "parallelGateway". Nếu có thể chọn 1 hoặc nhiều nhánh, dùng "inclusiveGateway". Nếu chờ 1 sự kiện nào đó xảy ra trước, dùng "eventBasedGateway".
 4. Phân loại loại phần tử (type) chuẩn BPMN:
    - Task: task, userTask, serviceTask, sendTask, receiveTask, manualTask, scriptTask, businessRuleTask, callActivity, subProcess.
    - Event (Sự kiện trung gian): Nếu là "Chờ 5 phút", "Nhận email", "Xảy ra lỗi", dùng type là "intermediateCatchEvent" HOẶC "intermediateThrowEvent", đồng thời bắt buộc cung cấp thêm trường "eventType" (ví dụ: "timer", "message", "error", "signal", "conditional").
 
-TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (Không bọc trong markdown \`\`\`json):
+TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON CHỨA NHIỀU STEPS (Không bọc trong markdown \`\`\`json):
 {
   "steps": [
-    { "step": 1, "actor": "Tên tác nhân", "action": "Mô tả ngắn gọn", "condition": "", "type": "userTask", "gatewayType": "", "eventType": "" }
+    { "step": 1, "actor": "Tên tác nhân", "action": "Mô tả ngắn gọn bước 1", "condition": "", "type": "userTask", "gatewayType": "", "eventType": "" },
+    { "step": 2, "actor": "Tác nhân khác", "action": "Mô tả ngắn gọn bước 2", "condition": "Nếu xảy ra lỗi", "type": "intermediateCatchEvent", "gatewayType": "exclusiveGateway", "eventType": "error" }
   ],
   "actors": ["Tác nhân 1", "Tác nhân 2"]
 }`;

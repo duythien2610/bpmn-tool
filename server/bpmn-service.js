@@ -187,13 +187,13 @@ function parseBoundsFromXml(xml) {
 function buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors) {
   const autoPos = parseBoundsFromXml(layoutedXml);
   const PART_LABEL_W = 30, LANE_LABEL_W = 30, LANE_H = 140;
-  const START_X = 80, START_Y = 30, H_GAP = 120;
+  const START_X = 160, START_Y = 60, H_GAP = 120;
 
   // Sort by auto-layout Y order
   const sorted = nodes.map(n => ({ ...n, autoY: autoPos[n.id]?.y || 0, autoX: autoPos[n.id]?.x || 0 }))
     .sort((a,b) => a.autoY - b.autoY || a.autoX - b.autoX);
 
-  const COL_X0 = START_X + PART_LABEL_W + LANE_LABEL_W;
+  const COL_X0 = START_X + PART_LABEL_W + LANE_LABEL_W + 50;
   let curX = COL_X0;
   const colMap = {};
   sorted.forEach(n => {

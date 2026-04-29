@@ -36,7 +36,7 @@ const BpmnEngine = (() => {
   const POOL_LABEL_W  = 30;    // Pool label strip
   const LANE_LABEL_W  = 30;    // Lane label strip
   const LANE_H        = 140;   // Per-lane height
-  const CONTENT_X0    = POOL_X + POOL_LABEL_W + LANE_LABEL_W; // First element X
+  const CONTENT_X0    = POOL_X + POOL_LABEL_W + LANE_LABEL_W + 50; // First element X
   const H_GAP         = 120;   // Gap between elements
   const POOL_TOP_Y    = 60;    // Pool top y
 

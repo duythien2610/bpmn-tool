@@ -48,7 +48,9 @@ const BpmnEngine = (() => {
     callactivity:'callActivity',
     user:'userTask', service:'serviceTask', send:'sendTask',
     manual:'manualTask', receive:'receiveTask', script:'scriptTask',
-    rule:'businessRuleTask',
+    rule:'businessRuleTask', call:'callActivity',
+    intermediatecatchevent: 'intermediateCatchEvent', intermediatethrowevent: 'intermediateThrowEvent',
+    subprocess: 'subProcess'
   };
   const resolveType = t => TYPE_MAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
 
@@ -195,6 +197,19 @@ const BpmnEngine = (() => {
         return `    <bpmn:parallelGateway id="${n.id}"${name} />`;
       if (n.type === 'inclusiveGateway')
         return `    <bpmn:inclusiveGateway id="${n.id}"${name} />`;
+      if (n.type === 'eventBasedGateway')
+        return `    <bpmn:eventBasedGateway id="${n.id}"${name} />`;
+      if (n.type === 'intermediateCatchEvent' || n.type === 'intermediateThrowEvent') {
+        const evtDefMap = {
+          timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
+          message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
+          error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
+          signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
+          conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
+        };
+        const evtDef = evtDefMap[n.eventType] || '';
+        if (evtDef) return `    <bpmn:${n.type} id="${n.id}"${name}>\n      ${evtDef}\n    </bpmn:${n.type}>`;
+      }
       return `    <bpmn:${n.type} id="${n.id}"${name} />`;
     }).join('\n');
 
@@ -224,7 +239,7 @@ const BpmnEngine = (() => {
       if (!p) return;
       if (n.type === 'exclusiveGateway') {
         diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-      } else if (n.type === 'startEvent' || n.type === 'endEvent') {
+      } else if (n.type.includes('Event')) {
         diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel>\n        <dc:Bounds x="${p.x - 10}" y="${p.y + p.h + 4}" width="${p.w + 20}" height="14" />\n      </bpmndi:BPMNLabel>\n    </bpmndi:BPMNShape>\n`;
       } else {
         diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n    </bpmndi:BPMNShape>\n`;

@@ -17,6 +17,8 @@ const TYPE_MAP = {
   scripttask:'scriptTask', businessruletask:'businessRuleTask', callactivity:'callActivity',
   user:'userTask', service:'serviceTask', send:'sendTask', manual:'manualTask',
   receive:'receiveTask', script:'scriptTask', rule:'businessRuleTask', call:'callActivity',
+  intermediatecatchevent: 'intermediateCatchEvent', intermediatethrowevent: 'intermediateThrowEvent',
+  subprocess: 'subProcess'
 };
 const resolveType = t => TYPE_MAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
 
@@ -25,8 +27,10 @@ const SIZE = {
   sendTask:{w:100,h:80}, receiveTask:{w:100,h:80}, manualTask:{w:100,h:80},
   scriptTask:{w:100,h:80}, businessRuleTask:{w:100,h:80}, callActivity:{w:100,h:80},
   startEvent:{w:36,h:36}, endEvent:{w:36,h:36},
+  intermediateCatchEvent:{w:36,h:36}, intermediateThrowEvent:{w:36,h:36},
   exclusiveGateway:{w:50,h:50}, parallelGateway:{w:50,h:50},
   inclusiveGateway:{w:50,h:50}, eventBasedGateway:{w:50,h:50},
+  subProcess:{w:120,h:100}
 };
 const elSize = t => SIZE[t] || {w:100,h:80};
 
@@ -69,6 +73,7 @@ function buildFlow(steps, actors) {
 
     nodes.push({
       id: taskId, type, name: action, actor,
+      eventType: step.eventType,
       jobType: step.jobType, retries: step.retries,
       assignee: step.assignee, candidateGroups: step.candidateGroups,
       formKey: step.formKey, dueDate: step.dueDate,
@@ -142,6 +147,18 @@ function buildSemanticXml(title, steps, actors) {
     if (n.type === 'exclusiveGateway') return `  <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
     if (n.type === 'parallelGateway')  return `  <bpmn:parallelGateway id="${n.id}"${name} />`;
     if (n.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${n.id}"${name} />`;
+    if (n.type === 'eventBasedGateway') return `  <bpmn:eventBasedGateway id="${n.id}"${name} />`;
+    if (n.type === 'intermediateCatchEvent' || n.type === 'intermediateThrowEvent') {
+      const evtDefMap = {
+        timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
+        message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
+        error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
+        signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
+        conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
+      };
+      const evtDef = evtDefMap[n.eventType] || '';
+      if (evtDef) return `  <bpmn:${n.type} id="${n.id}"${name}>\n    ${evtDef}\n  </bpmn:${n.type}>`;
+    }
     if (ext) return `  <bpmn:${n.type} id="${n.id}"${name}>${ext}\n  </bpmn:${n.type}>`;
     return `  <bpmn:${n.type} id="${n.id}"${name} />`;
   }).join('\n');
@@ -228,7 +245,7 @@ function buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors) {
 
     if (n.type === 'exclusiveGateway') {
       di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n`;
-    } else if (n.type === 'startEvent' || n.type === 'endEvent') {
+    } else if (n.type.includes('Event')) {
       di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${x-10}" y="${y+h+4}" width="${w+20}" height="14" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n`;
     } else {
       di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n      </bpmndi:BPMNShape>\n`;
@@ -299,6 +316,18 @@ async function generateBpmn({ title, steps }) {
     if (n.type === 'exclusiveGateway') return `  <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
     if (n.type === 'parallelGateway')  return `  <bpmn:parallelGateway id="${n.id}"${name} />`;
     if (n.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${n.id}"${name} />`;
+    if (n.type === 'eventBasedGateway') return `  <bpmn:eventBasedGateway id="${n.id}"${name} />`;
+    if (n.type === 'intermediateCatchEvent' || n.type === 'intermediateThrowEvent') {
+      const evtDefMap = {
+        timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
+        message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
+        error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
+        signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
+        conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
+      };
+      const evtDef = evtDefMap[n.eventType] || '';
+      if (evtDef) return `  <bpmn:${n.type} id="${n.id}"${name}>\n    ${evtDef}\n  </bpmn:${n.type}>`;
+    }
     if (ext) return `  <bpmn:${n.type} id="${n.id}"${name}>${ext}\n  </bpmn:${n.type}>`;
     return `  <bpmn:${n.type} id="${n.id}"${name} />`;
   }).join('\n');

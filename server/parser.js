@@ -71,7 +71,7 @@ async function parseDescriptionToStructure(title, description) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       
-      const prompt = `Bạn là chuyên gia phân tích nghiệp vụ và chuẩn BPMN 2.0.
+      const prompt = `Bạn là chuyên gia phân tích nghiệp vụ và chuẩn BPMN 2.0 (Camunda).
 Hãy đọc đoạn mô tả quy trình dưới đây và trích xuất ra các bước theo đúng trình tự.
 Quy trình: "${title}"
 Mô tả:
@@ -80,13 +80,15 @@ Mô tả:
 YÊU CẦU:
 1. Xác định đúng tác nhân (actor) cho từng bước. Nếu không rõ, hãy dùng "Hệ thống" hoặc "Người dùng".
 2. Tóm tắt hành động (action) ngắn gọn, dễ hiểu.
-3. Nếu có rẽ nhánh (nếu, trong trường hợp...), hãy ghi vào trường condition và thêm gatewayType là "exclusiveGateway".
-4. Phân loại loại task (type) chuẩn BPMN: task, userTask, serviceTask, sendTask, receiveTask, manualTask, scriptTask, businessRuleTask.
+3. Rẽ nhánh (Gateways): Nếu là rẽ nhánh điều kiện (nếu, trong trường hợp), thêm gatewayType "exclusiveGateway". Nếu thực hiện song song đồng thời, dùng "parallelGateway". Nếu có thể chọn 1 hoặc nhiều nhánh, dùng "inclusiveGateway". Nếu chờ 1 sự kiện nào đó xảy ra trước, dùng "eventBasedGateway".
+4. Phân loại loại phần tử (type) chuẩn BPMN:
+   - Task: task, userTask, serviceTask, sendTask, receiveTask, manualTask, scriptTask, businessRuleTask, callActivity, subProcess.
+   - Event (Sự kiện trung gian): Nếu là "Chờ 5 phút", "Nhận email", "Xảy ra lỗi", dùng type là "intermediateCatchEvent" HOẶC "intermediateThrowEvent", đồng thời bắt buộc cung cấp thêm trường "eventType" (ví dụ: "timer", "message", "error", "signal", "conditional").
 
 TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (Không bọc trong markdown \`\`\`json):
 {
   "steps": [
-    { "step": 1, "actor": "Tên tác nhân", "action": "Mô tả ngắn gọn", "condition": "", "type": "userTask", "gatewayType": "" }
+    { "step": 1, "actor": "Tên tác nhân", "action": "Mô tả ngắn gọn", "condition": "", "type": "userTask", "gatewayType": "", "eventType": "" }
   ],
   "actors": ["Tác nhân 1", "Tác nhân 2"]
 }`;

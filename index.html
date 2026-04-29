@@ -3,134 +3,374 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BPMN Studio — Professional BPMN 2.0 Design Tool</title>
-  <meta name="description" content="Công cụ thiết kế sơ đồ BPMN 2.0 chuyên nghiệp. Chuyển mô tả quy trình thành sơ đồ chuẩn Camunda tự động." />
+  <title>BPMN Studio — Professional BPMN Design Workspace</title>
+  <meta name="description" content="Nền tảng thiết kế BPMN chuyên nghiệp: chuyển mô tả nghiệp vụ thành sơ đồ Camunda-ready, review logic, chỉnh flow và export XML chuẩn." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<!-- ── NAVBAR ───────────────────────────────────────────────────── -->
-<nav class="navbar">
-  <a href="/" class="nav-logo">
-    <div class="logo-icon">B</div>
-    <span class="logo-text">BPMN Studio</span>
-    <span class="logo-badge">v2.0</span>
-  </a>
-  <div class="nav-links">
-    <a href="designer.html">Designer</a>
-    <a href="designer.html" style="background:var(--primary);color:#fff;padding:7px 18px;border-radius:8px;font-weight:600">
-      Bắt đầu ngay →
+<div class="site-shell">
+  <header class="navbar" id="top">
+    <a href="#top" class="nav-logo">
+      <div class="logo-icon">B</div>
+      <div class="logo-copy">
+        <span class="logo-text">BPMN Studio</span>
+        <span class="logo-subtitle">Camunda-first process workspace</span>
+      </div>
     </a>
-  </div>
-</nav>
 
-<!-- ── HERO ─────────────────────────────────────────────────────── -->
-<section class="hero">
-  <div class="hero-inner">
-    <div class="hero-eyebrow">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 1.5L8.8 5.2l4.2.6-3 3 .7 4.2L7 11 3.3 13l.7-4.2-3-3 4.2-.6L7 1.5Z" fill="currentColor"/>
-      </svg>
-      BPMN 2.0 · Camunda Compatible · Auto-Layout
+    <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <div class="nav-menu" id="nav-menu">
+      <nav class="nav-links">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#workspace">Workspace</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="designer.html" class="btn-secondary btn-secondary--nav">Open Studio</a>
+        <a href="designer.html" class="btn-primary btn-primary--nav">Launch Designer</a>
+      </div>
     </div>
+  </header>
 
-    <h1>Vẽ sơ đồ<br /><span>BPMN chuẩn</span> bằng ngôn ngữ tự nhiên</h1>
+  <main>
+    <section class="hero">
+      <div class="hero-grid">
+        <div class="hero-copy reveal">
+          <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            BPMN 2.0 • Camunda-compatible • AI-assisted
+          </div>
+          <h1>Thiết kế BPMN như một <span>tool chuyên nghiệp</span>, không còn kiểu prompt rồi cầu may.</h1>
+          <p class="hero-desc">
+            BPMN Studio giúp business analyst và team vận hành chuyển mô tả quy trình thành sơ đồ BPMN rõ lane,
+            đúng gateway, có review layer trước khi export. Tối ưu cho Camunda Modeler và cách làm việc thực tế.
+          </p>
 
-    <p class="hero-desc">
-      Mô tả quy trình bằng tiếng Việt — BPMN Studio tự động tạo sơ đồ
-      chuẩn BPMN 2.0 với swimlane, gateway, và layout đẹp. Tải file .bpmn
-      mở thẳng trong Camunda Modeler.
+          <div class="hero-actions">
+            <a href="designer.html" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8h10M9 4.5 12.5 8 9 11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Mở Workspace
+            </a>
+            <a href="#workspace" class="btn-secondary">Xem giao diện</a>
+          </div>
+
+          <div class="hero-metrics">
+            <div class="metric-card">
+              <strong>Prompt → BPMN</strong>
+              <span>Tách actor, lane, gateway và task type trong một flow làm việc liền mạch.</span>
+            </div>
+            <div class="metric-card">
+              <strong>Review trước khi generate</strong>
+              <span>Giảm lỗi parse bằng bảng logic có thể sửa thủ công trước khi dựng XML.</span>
+            </div>
+            <div class="metric-card">
+              <strong>Camunda-ready</strong>
+              <span>Ưu tiên visual, cấu trúc và export phù hợp với Camunda Modeler.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-panel reveal reveal-delay-1">
+          <div class="panel-window">
+            <div class="panel-window-bar">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <div class="panel-window-body">
+              <div class="mini-sidebar">
+                <div class="mini-sidebar-group">
+                  <span class="mini-sidebar-label">Studio</span>
+                  <div class="mini-sidebar-item active">Designer</div>
+                  <div class="mini-sidebar-item">Catalog</div>
+                  <div class="mini-sidebar-item">Analysis</div>
+                </div>
+                <div class="mini-sidebar-group">
+                  <span class="mini-sidebar-label">Output</span>
+                  <div class="mini-sidebar-item">Camunda XML</div>
+                  <div class="mini-sidebar-item">PNG Export</div>
+                </div>
+              </div>
+
+              <div class="mini-workspace">
+                <div class="mini-header">
+                  <div>
+                    <span class="mini-kicker">Step 2 Review</span>
+                    <strong>Quy trình duyệt đơn nghỉ phép</strong>
+                  </div>
+                  <div class="mini-pill">4 lanes • 8 steps</div>
+                </div>
+
+                <div class="mini-table">
+                  <div class="mini-table-head">
+                    <span>Actor</span>
+                    <span>Action</span>
+                    <span>Type</span>
+                  </div>
+                  <div class="mini-row">
+                    <span>Nhân viên</span>
+                    <span>Điền form xin nghỉ</span>
+                    <span>User Task</span>
+                  </div>
+                  <div class="mini-row">
+                    <span>Hệ thống</span>
+                    <span>Gửi thông báo cho quản lý</span>
+                    <span>Send Task</span>
+                  </div>
+                  <div class="mini-row">
+                    <span>Quản lý</span>
+                    <span>Xem xét đơn</span>
+                    <span>User Task</span>
+                  </div>
+                  <div class="mini-row mini-row--accent">
+                    <span>HR</span>
+                    <span>Nếu trên 3 ngày: kiểm tra phép còn lại</span>
+                    <span>Gateway + Task</span>
+                  </div>
+                </div>
+
+                <div class="mini-diagram">
+                  <div class="lane-chip">Nhân viên</div>
+                  <div class="diagram-flow">
+                    <div class="node event"></div>
+                    <div class="connector"></div>
+                    <div class="node task"></div>
+                    <div class="connector"></div>
+                    <div class="node gateway"></div>
+                    <div class="connector"></div>
+                    <div class="node end"></div>
+                  </div>
+                  <div class="lane-chip">Quản lý / HR / Hệ thống</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="signal-strip reveal">
+      <div class="signal-item">
+        <span class="signal-label">AI Parsing</span>
+        <strong>Prompt tiếng Việt / Anh</strong>
+      </div>
+      <div class="signal-item">
+        <span class="signal-label">Swimlane Review</span>
+        <strong>Actor-first workflow</strong>
+      </div>
+      <div class="signal-item">
+        <span class="signal-label">Camunda Export</span>
+        <strong>BPMN XML sẵn dùng</strong>
+      </div>
+      <div class="signal-item">
+        <span class="signal-label">Visual Control</span>
+        <strong>Canvas, XML, properties</strong>
+      </div>
+    </section>
+
+    <section class="capabilities section-block" id="capabilities">
+      <div class="section-intro reveal">
+        <span class="section-kicker">Capabilities</span>
+        <h2>Không chỉ là BPMN generator, mà là workspace để đi từ mô tả đến artefact có thể dùng thật.</h2>
+        <p>Thiết kế theo flow làm việc của BA: nhập mô tả, rà logic, kiểm soát lane, chỉnh sửa sơ đồ và export cho Camunda.</p>
+      </div>
+
+      <div class="capability-grid">
+        <article class="capability-card reveal">
+          <div class="capability-icon">01</div>
+          <h3>Prompt Intake có cấu trúc</h3>
+          <p>Input workspace có guidance, prompt quality signal và ví dụ mẫu để giảm sai lane ngay từ đầu.</p>
+        </article>
+        <article class="capability-card reveal reveal-delay-1">
+          <div class="capability-icon">02</div>
+          <h3>Logic Review trước khi render</h3>
+          <p>Chỉnh actor, action, điều kiện và task type ở bảng trung gian trước khi commit thành BPMN.</p>
+        </article>
+        <article class="capability-card reveal reveal-delay-2">
+          <div class="capability-icon">03</div>
+          <h3>Camunda-style Visualization</h3>
+          <p>Ưu tiên event, gateway, pool/lane và flow readability theo ngôn ngữ thị giác gần Camunda hơn.</p>
+        </article>
+        <article class="capability-card reveal">
+          <div class="capability-icon">04</div>
+          <h3>Catalog và Metadata</h3>
+          <p>Lưu quy trình, phiên bản, owner và trạng thái AS-IS / TO-BE trong cùng tool.</p>
+        </article>
+        <article class="capability-card reveal reveal-delay-1">
+          <div class="capability-icon">05</div>
+          <h3>XML + PNG Export</h3>
+          <p>Xuất file `.bpmn` chuẩn và hình ảnh phục vụ review nhanh với stakeholder.</p>
+        </article>
+        <article class="capability-card reveal reveal-delay-2">
+          <div class="capability-icon">06</div>
+          <h3>Phù hợp triển khai thật</h3>
+          <p>Kiến trúc frontend + backend tách bạch, có thể chạy trên Vercel và backend service riêng.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="workflow section-block" id="workflow">
+      <div class="section-intro reveal">
+        <span class="section-kicker">Workflow</span>
+        <h2>Một flow 3 lớp: hiểu nghiệp vụ, kiểm soát logic, rồi mới dựng sơ đồ.</h2>
+      </div>
+
+      <div class="workflow-grid">
+        <div class="workflow-rail reveal">
+          <div class="workflow-step active">
+            <span class="workflow-step-num">1</span>
+            <div>
+              <strong>Capture</strong>
+              <p>Nhập prompt mô tả quy trình nghiệp vụ, vai trò và điều kiện.</p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <span class="workflow-step-num">2</span>
+            <div>
+              <strong>Review</strong>
+              <p>Kiểm tra lane, task type, gateway trước khi render BPMN.</p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <span class="workflow-step-num">3</span>
+            <div>
+              <strong>Operate</strong>
+              <p>Chỉnh canvas, validate, export XML hoặc PNG cho Camunda và stakeholder.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="workflow-board reveal reveal-delay-1">
+          <div class="workflow-board-head">
+            <strong>Điểm khác biệt</strong>
+            <span>BPMN Studio</span>
+          </div>
+          <div class="workflow-compare">
+            <div class="compare-row">
+              <span>Lane visibility</span>
+              <strong>Rõ từ phase review</strong>
+            </div>
+            <div class="compare-row">
+              <span>Gateway control</span>
+              <strong>Chỉnh được trước khi vẽ</strong>
+            </div>
+            <div class="compare-row">
+              <span>Camunda export</span>
+              <strong>Ưu tiên XML dùng thật</strong>
+            </div>
+            <div class="compare-row">
+              <span>UI model</span>
+              <strong>Workspace thay vì form đơn lẻ</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace-showcase section-block" id="workspace">
+      <div class="section-intro reveal">
+        <span class="section-kicker">Workspace</span>
+        <h2>Thiết kế như một tool nội bộ nghiêm túc: navigation, panels, review signals và canvas control.</h2>
+      </div>
+
+      <div class="showcase-grid">
+        <article class="showcase-card showcase-card--wide reveal">
+          <div class="showcase-copy">
+            <span class="showcase-tag">Prompt Workspace</span>
+            <h3>Step 1 không còn là textarea đơn sơ.</h3>
+            <p>Hero, live stats, checklist và trạng thái prompt giúp người dùng biết mô tả đã đủ tốt để AI tách lane hay chưa.</p>
+          </div>
+          <div class="showcase-art art-prompt">
+            <div class="art-window">
+              <div class="art-line short"></div>
+              <div class="art-line"></div>
+              <div class="art-line"></div>
+              <div class="art-block"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="showcase-card reveal reveal-delay-1">
+          <span class="showcase-tag">Logic Review</span>
+          <h3>Lane, task, gateway có tín hiệu ngay trước khi generate.</h3>
+          <p>Giảm lỗi parse và giúp BA chỉnh lại flow ở đúng thời điểm.</p>
+        </article>
+
+        <article class="showcase-card reveal reveal-delay-2">
+          <span class="showcase-tag">Diagram Mode</span>
+          <h3>Canvas nổi bật, panel hỗ trợ, XML và properties đồng bộ.</h3>
+          <p>Nhìn như một workspace thực thụ thay vì demo page.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="faq section-block" id="faq">
+      <div class="section-intro reveal">
+        <span class="section-kicker">FAQ</span>
+        <h2>Những gì team thường cần trước khi dùng BPMN Studio trong thực tế.</h2>
+      </div>
+
+      <div class="faq-list">
+        <article class="faq-item reveal">
+          <h3>Có mở được trong Camunda Modeler không?</h3>
+          <p>Có. Tool ưu tiên xuất BPMN XML để mở tiếp trong Camunda Modeler và chỉnh tiếp nếu cần.</p>
+        </article>
+        <article class="faq-item reveal reveal-delay-1">
+          <h3>Có dùng được khi AI parse sai actor không?</h3>
+          <p>Có. Step review cho phép sửa actor/lane trước khi generate, nên người dùng vẫn giữ quyền kiểm soát.</p>
+        </article>
+        <article class="faq-item reveal reveal-delay-2">
+          <h3>Có phù hợp cho demo với sếp hoặc khách hàng?</h3>
+          <p>Có. UI mới được làm theo hướng product tool, có canvas rõ, export PNG/XML và landing page đủ chuyên nghiệp để giới thiệu.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="final-cta reveal">
+      <div class="final-cta-copy">
+        <span class="section-kicker">Start Now</span>
+        <h2>Mở BPMN Studio và bắt đầu dựng quy trình như một sản phẩm nội bộ nghiêm túc.</h2>
+        <p>Từ prompt đầu vào tới BPMN output, toàn bộ flow đã được tổ chức lại để dễ dùng, dễ review và đủ chuyên nghiệp để demo.</p>
+      </div>
+      <div class="final-cta-actions">
+        <a href="designer.html" class="btn-primary">Launch Designer</a>
+        <a href="#top" class="btn-secondary">Back to Top</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-brand">
+      <div class="logo-icon">B</div>
+      <div>
+        <strong>BPMN Studio</strong>
+        <span>Professional BPMN workspace for BA teams</span>
+      </div>
+    </div>
+    <div class="footer-links">
+      <a href="designer.html">Designer</a>
+      <a href="#capabilities">Capabilities</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <p class="footer-note">
+      Built with `bpmn-js`, `bpmn-auto-layout` and a Camunda-oriented workflow.
     </p>
-
-    <div class="hero-cta">
-      <a href="designer.html" class="btn-primary">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M3 8h10M9 5l4 3-4 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Mở Design Tool
-      </a>
-      <a href="#how-it-works" class="btn-secondary">Xem cách dùng</a>
-    </div>
-  </div>
-</section>
-
-<!-- ── FEATURES ──────────────────────────────────────────────────── -->
-<section class="features">
-  <div class="section-header">
-    <h2>Tất cả những gì bạn cần</h2>
-    <p>Công cụ đầy đủ để tạo tài liệu BPMN chuyên nghiệp</p>
-  </div>
-
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon">🧠</div>
-      <h3>AI Parser thông minh</h3>
-      <p>Nhận dạng actor, action, điều kiện từ mô tả tiếng Việt / Anh. Tự động phân loại task type (User, Service, Send...).</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📐</div>
-      <h3>Horizontal Layout đẹp</h3>
-      <p>Sơ đồ chảy từ trái sang phải, swimlane theo actor, connector thẳng hàng — giống Camunda Modeler thực tế.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🏊</div>
-      <h3>Swimlane tự động</h3>
-      <p>Tự động tạo Pool và Lane dựa trên actor trong quy trình. Không cần kéo thả thủ công.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🔀</div>
-      <h3>Gateway & Phân nhánh</h3>
-      <p>Nhận biết điều kiện "Nếu…" → tạo Exclusive Gateway tự động với các nhánh Yes/No.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📁</div>
-      <h3>Export .bpmn chuẩn</h3>
-      <p>Xuất file BPMN 2.0 XML mở được trong Camunda Modeler, bpmn.io, hoặc bất kỳ công cụ BPMN nào.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">✏️</div>
-      <h3>Review & Chỉnh sửa</h3>
-      <p>Bảng logic trực quan để chỉnh sửa actor, action, task type trước khi render sơ đồ cuối.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ── HOW IT WORKS ───────────────────────────────────────────────── -->
-<section class="steps-section" id="how-it-works">
-  <div class="steps-inner">
-    <div class="section-header">
-      <h2>Chỉ 3 bước đơn giản</h2>
-      <p>Từ mô tả tự nhiên đến file .bpmn sẵn sàng cho sếp</p>
-    </div>
-    <div class="steps-grid">
-      <div class="step-item">
-        <div class="step-num">1</div>
-        <h3>Mô tả quy trình</h3>
-        <p>Nhập mô tả bằng tiếng Việt theo từng bước, ghi rõ ai làm gì và điều kiện nào.</p>
-      </div>
-      <div class="step-item">
-        <div class="step-num">2</div>
-        <h3>Xem xét & Chỉnh sửa</h3>
-        <p>Kiểm tra bảng logic được trích xuất, thêm/sửa/xóa bước nếu cần, chọn task type.</p>
-      </div>
-      <div class="step-item">
-        <div class="step-num">3</div>
-        <h3>Tải .bpmn về dùng</h3>
-        <p>Click Download — mở file .bpmn trong Camunda Modeler, sơ đồ hoàn chỉnh với swimlane.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── FOOTER ─────────────────────────────────────────────────────── -->
-<footer>
-  <p>
-    BPMN Studio — Built with ❤️ using
-    <a href="https://bpmn.io" target="_blank">bpmn-js</a> &amp;
-    <a href="https://github.com/bpmn-io/bpmn-auto-layout" target="_blank">bpmn-auto-layout</a> ·
-    Tương thích <a href="https://camunda.com/download/modeler/" target="_blank">Camunda Modeler</a>
-  </p>
-</footer>
+  </footer>
+</div>
 
 <script src="app.js"></script>
 </body>

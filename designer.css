@@ -37,7 +37,7 @@
 body {
   font-family: var(--font);
   background: var(--bg); color: var(--text);
-  height: 100dvh; overflow: hidden;
+  min-height: 100dvh; overflow-y: auto; overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   display: flex; flex-direction: column;
 }

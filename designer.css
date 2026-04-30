@@ -1788,6 +1788,79 @@ body {
   background: linear-gradient(180deg, #fbfdff, #f8fafc);
 }
 
+body.focus-bpmn {
+  overflow: hidden;
+}
+
+body.focus-bpmn .designer-header,
+body.focus-bpmn .meta-bar,
+body.focus-bpmn .stepper,
+body.focus-bpmn #panel-step1,
+body.focus-bpmn #panel-step2,
+body.focus-bpmn .review-banner--diagram {
+  display: none !important;
+}
+
+body.focus-bpmn #panel-step3 {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex !important;
+  background:
+    radial-gradient(circle at top left, rgba(249,115,22,0.1), transparent 24%),
+    linear-gradient(180deg, #f8fafc, #eef2f7);
+}
+
+body.focus-bpmn #panel-step3 .diagram-panel {
+  width: 100%;
+  height: 100%;
+  padding-top: 0;
+}
+
+body.focus-bpmn .diagram-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 150;
+  padding: 12px 20px;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.08);
+}
+
+body.focus-bpmn .diagram-body {
+  padding-bottom: 92px;
+}
+
+body.focus-bpmn .diagram-canvas-wrap {
+  border-right: 0;
+}
+
+body.focus-bpmn .diagram-footer {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(1120px, calc(100vw - 24px));
+  border: 1px solid rgba(148,163,184,0.16);
+  border-radius: 22px;
+  box-shadow: 0 24px 40px rgba(15,23,42,0.16);
+  backdrop-filter: blur(18px);
+  background: rgba(255,255,255,0.92);
+  z-index: 155;
+}
+
+body.focus-bpmn .diagram-insight-bar {
+  top: 14px;
+  left: 18px;
+}
+
+body.focus-bpmn .diagram-assistant {
+  top: 78px;
+}
+
+body.focus-bpmn .xml-sidebar {
+  width: 360px;
+  border-left: 1px solid rgba(148,163,184,0.16);
+}
+
 .assistant-body {
   background:
     linear-gradient(180deg, rgba(248,250,252,0.9), rgba(241,245,249,0.95));
@@ -1950,6 +2023,28 @@ body {
 
   .step-indicator {
     min-width: 100%;
+  }
+
+  body.focus-bpmn .diagram-toolbar {
+    padding: 10px 12px;
+  }
+
+  body.focus-bpmn .diagram-footer {
+    width: calc(100vw - 16px);
+    bottom: 8px;
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body.focus-bpmn .footer-left,
+  body.focus-bpmn .footer-right {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  body.focus-bpmn .diagram-body {
+    padding-bottom: 138px;
   }
 
   .stepper {

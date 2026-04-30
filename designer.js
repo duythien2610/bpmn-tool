@@ -90,6 +90,7 @@ const state = {
   xml: '',
   viewer: null,
   assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') !== '0',
+  focusMode: false,
 };
 
 function getProcessStats(steps) {
@@ -134,6 +135,40 @@ function renderDiagramInsights(steps) {
   bar.classList.toggle('hidden', stats.taskCount === 0);
   lanes.textContent = `${stats.laneCount} lane${stats.laneCount === 1 ? '' : 's'}`;
   tasks.textContent = `${stats.taskCount} step${stats.taskCount === 1 ? '' : 's'}`;
+}
+
+function syncFocusModeButton() {
+  const btn = document.getElementById('btn-focus-mode');
+  if (!btn) return;
+  btn.classList.toggle('btn-icon--active', state.focusMode);
+  btn.setAttribute('aria-pressed', String(state.focusMode));
+  btn.setAttribute('title', state.focusMode ? 'Thoát Focus BPMN Editor' : 'Focus BPMN Editor');
+}
+
+async function setFocusMode(next) {
+  state.focusMode = next;
+  document.body.classList.toggle('focus-bpmn', next);
+  syncFocusModeButton();
+
+  try {
+    if (next && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else if (!next && document.fullscreenElement && document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
+  } catch (_) {
+    // Ignore browser fullscreen errors; custom focus mode still applies.
+  }
+
+  if (state.viewer) {
+    setTimeout(() => {
+      try { state.viewer.get('canvas').zoom('fit-viewport', 'auto'); } catch (_) {}
+    }, 120);
+  }
+}
+
+function toggleFocusMode() {
+  setFocusMode(!state.focusMode);
 }
 
 function updatePromptWorkspace() {
@@ -489,6 +524,7 @@ async function renderBpmn(xml) {
 document.getElementById('btn-zoom-fit').addEventListener('click', () => state.viewer?.get('canvas').zoom('fit-viewport', 'auto'));
 document.getElementById('btn-zoom-in').addEventListener('click', () => { const c = state.viewer?.get('canvas'); if (c) c.zoom(c.zoom() * 1.25); });
 document.getElementById('btn-zoom-out').addEventListener('click', () => { const c = state.viewer?.get('canvas'); if (c) c.zoom(c.zoom() * 0.8); });
+document.getElementById('btn-focus-mode')?.addEventListener('click', toggleFocusMode);
 
 /* keyboard shortcut Ctrl+Shift+H — fit viewport */
 document.addEventListener('keydown', (e) => {
@@ -516,7 +552,14 @@ document.addEventListener('keydown', (e) => {
       if (sel.length > 0) state.viewer.get('modeling').removeElements(sel);
     } catch(err) {}
   }
+  if (e.key === 'F11' && state.step === 3) {
+    e.preventDefault();
+    toggleFocusMode();
+  }
   if (e.key === 'Escape') {
+    if (state.focusMode) {
+      setFocusMode(false);
+    }
     closePropsPanel();
   }
 });
@@ -653,6 +696,14 @@ document.getElementById('assistant-input')?.addEventListener('keydown', (e) => {
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
   }, 0);
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && state.focusMode) {
+    state.focusMode = false;
+    document.body.classList.remove('focus-bpmn');
+    syncFocusModeButton();
+  }
 });
 
 /* ─── PROPERTIES PANEL ENGINE ─────────────────────────────────────────── */
@@ -1145,6 +1196,7 @@ initPropsPanel();
 updatePromptWorkspace();
 renderLogicSummary([]);
 renderDiagramInsights([]);
+syncFocusModeButton();
 goToStep(1);
 
 /* ════════════════════════════════════════════════════════════════

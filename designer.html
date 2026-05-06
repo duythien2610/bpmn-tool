@@ -189,10 +189,16 @@
             </div>
 
             <div class="input-group">
-              <label class="input-label" for="process-desc">
-                Mô tả quy trình
-                <span class="input-label-hint">— Theo từng bước, ghi rõ actor (Khách hàng, Hệ thống…)</span>
-              </label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="input-label" for="process-desc" style="margin-bottom: 0;">
+                  Mô tả quy trình
+                  <span class="input-label-hint">— Theo từng bước, ghi rõ actor (Khách hàng, Hệ thống…)</span>
+                </label>
+                <button type="button" id="btn-copy-ai-prompt" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-weight: 600;" title="Copy mẫu Prompt chuẩn để nhờ ChatGPT/Gemini viết hộ">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M5.5 3.5v-1a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-1M4 5.5h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Copy Prompt cho ChatGPT
+                </button>
+              </div>
               <textarea class="input-field" id="process-desc" rows="9"
                 placeholder="Ví dụ:
 Khách hàng đặt hàng trên website.
@@ -807,6 +813,49 @@ Khách hàng nhận hàng và xác nhận."></textarea>
 <script src="https://unpkg.com/bpmn-js@18.14.0/dist/bpmn-modeler.production.min.js"></script>
 <script src="bpmn-engine.js"></script>
 <script src="designer.js"></script>
+
+<script>
+  document.getElementById('btn-copy-ai-prompt')?.addEventListener('click', function() {
+    const promptText = `Bạn là một chuyên gia phân tích quy trình nghiệp vụ (BPMN).
+Tôi có một mô tả quy trình như sau: 
+
+"[Dán mô tả quy trình của bạn vào đây]"
+
+Hãy phân tích và viết lại quy trình này thành các bước tuần tự để tôi có thể vẽ sơ đồ BPMN. 
+BẮT BUỘC tuân thủ nghiêm ngặt định dạng sau:
+1. Bắt đầu mỗi bước bằng số thứ tự.
+2. Ghi rõ [Vai trò]: [Hành động cụ thể]. 
+3. Nếu có rẽ nhánh điều kiện, hãy viết: "Nếu [Điều kiện]: [Vai trò]: [Hành động]".
+4. Chuẩn hóa vai trò thành các từ ngắn gọn (Ví dụ: Khách hàng, Hệ thống, Quản lý, Nhân viên, Kho, Kế toán...).
+5. Tuyệt đối không thêm giải thích, không dùng markdown (in đậm, in nghiêng), chỉ in ra danh sách các bước.
+
+Ví dụ định dạng đầu ra mong muốn:
+1. Khách hàng: Tạo đơn hàng trên website
+2. Hệ thống: Kiểm tra thông tin đơn hàng
+3. Nếu thông tin không hợp lệ: Hệ thống: Hiển thị lỗi và yêu cầu nhập lại
+4. Nếu thông tin hợp lệ: Hệ thống: Gửi email xác nhận
+5. Quản lý: Phê duyệt đơn hàng`;
+
+    navigator.clipboard.writeText(promptText).then(() => {
+      const btn = this;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5l-7 7-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Đã Copy!`;
+      btn.style.background = '#dcfce7';
+      btn.style.color = '#166534';
+      btn.style.borderColor = '#bbf7d0';
+      
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.style.background = 'rgba(59, 130, 246, 0.1)';
+        btn.style.color = '#3b82f6';
+        btn.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+      }, 2000);
+    }).catch(err => {
+      console.error('Lỗi khi copy', err);
+      alert('Trình duyệt của bạn không hỗ trợ copy tự động.');
+    });
+  });
+</script>
 
 </body>
 </html>

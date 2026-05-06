@@ -183,7 +183,7 @@ NHIỆM VỤ CỦA BẠN:
 
     } catch (aiError) {
       console.error('Lỗi gọi Gemini API:', aiError);
-      reply = \`🤖 Đã có lỗi kết nối với AI: \${aiError.message}\`;
+      reply = `🤖 Đã có lỗi kết nối với AI: ${aiError.message}`;
     }
 
     res.json({ success: true, reply, xml: newXml || undefined });
@@ -215,8 +215,8 @@ app.get('*', (req, res) => {
 
 // ── Start server ───────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🎯 BPMN Studio Server đang chạy:`);
-  console.log(`   → Mở trình duyệt: http://localhost:${PORT}`);
-  console.log(`   → API endpoint:   http://localhost:${PORT}/api`);
-  console.log(`   → Health check:   http://localhost:${PORT}/api/health\n`);
+  console.log('\n🎯 BPMN Studio Server đang chạy:');
+  console.log('   → Mở trình duyệt: http://localhost:' + PORT);
+  console.log('   → API endpoint:   http://localhost:' + PORT + '/api');
+  console.log('   → Health check:   http://localhost:' + PORT + '/api/health\n');
 });

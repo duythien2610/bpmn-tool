@@ -169,27 +169,46 @@ const BpmnEngine = (() => {
   }
 
   function assignPos(nodes, flows, actors, solo) {
-    const lH=solo?LANE_SOLO:LANE_H;
-    const lt={}; actors.forEach((a,i)=>{lt[a]=TOP_Y+i*lH;});
+    const baseLH=solo?LANE_SOLO:LANE_H;
+    const REJ_OFFSET=95; // vertical offset for reject row below main flow
     const x0=POOL_X+POOL_LBL+(solo?0:LANE_LBL)+GAP;
     let cx=x0, brMaxX=0;
     const pos={};
-    const poolBot=TOP_Y+actors.length*lH;
-    let rejRow=0; // which reject row we're on
 
-    // Build source→target map from flows for reject End positioning
+    // Build source→target map for reject End positioning
     const flowFrom={};
     flows.forEach(f=>{flowFrom[f.to]=f.from;});
+
+    // Count reject items per lane to know how much extra height each lane needs
+    const rejPerLane={};
+    actors.forEach(a=>{rejPerLane[a]=0;});
+    nodes.forEach(n=>{
+      if(n.isReject && n.actor && rejPerLane[n.actor]!==undefined) rejPerLane[n.actor]++;
+    });
+
+    // Compute each lane's height: base + extra for reject rows
+    const laneH={};
+    actors.forEach(a=>{
+      laneH[a] = rejPerLane[a]>0 ? baseLH+REJ_OFFSET : baseLH;
+    });
+
+    // Compute lane top Y (cumulative)
+    const lt={};
+    let cumY=TOP_Y;
+    actors.forEach(a=>{lt[a]=cumY; cumY+=laneH[a];});
 
     nodes.forEach(n=>{
       if(typeof n!=='object'||!n.id) return;
       const {w,h}=sz(n.type);
       const lTop=lt[n.actor]??TOP_Y;
-      const lMid=lTop+lH/2;
+      const thisLH=laneH[n.actor]??baseLH;
+      // Main flow center line is at 1/3 from top when lane has reject row, else center
+      const lMid = rejPerLane[n.actor]>0 ? lTop+Math.round(baseLH/2) : lTop+Math.round(thisLH/2);
+      // Reject row Y = below main flow, still inside the lane
+      const rejY = lTop+baseLH+10;
 
       if (n.isReject && n.type!=='endEvent') {
-        // Reject TASK: place below pool, same X as its gateway
-        const rejY=poolBot+25+rejRow*(h+30);
+        // Reject TASK: same X as gateway, on the reject row INSIDE the lane
         if (n.gwRef && pos[n.gwRef]) {
           const gp=pos[n.gwRef];
           pos[n.id]={x:Math.round(gp.cx-w/2),y:rejY,w,h,cx:gp.cx,cy:rejY+Math.round(h/2)};
@@ -197,18 +216,15 @@ const BpmnEngine = (() => {
           pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
         }
       } else if (n.isReject && n.type==='endEvent') {
-        // Reject END EVENT: place to the RIGHT of the reject task that feeds into it
+        // Reject END: to the RIGHT of the reject task, same reject row
         const srcId=flowFrom[n.id];
         if (srcId && pos[srcId]) {
           const rp=pos[srcId];
           const ex=rp.x+rp.w+30;
-          const ey=rp.cy;
-          pos[n.id]={x:ex,y:Math.round(ey-h/2),w,h,cx:ex+Math.round(w/2),cy:ey};
+          pos[n.id]={x:ex,y:Math.round(rp.cy-h/2),w,h,cx:ex+Math.round(w/2),cy:rp.cy};
         } else {
-          const rejY=poolBot+25+rejRow*(h+30);
           pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
         }
-        rejRow++; // each reject end = new row
       } else if (n.isBranch) {
         const ex=cx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
@@ -228,11 +244,11 @@ const BpmnEngine = (() => {
 
     const allP=Object.values(pos);
     const maxR=allP.length?Math.max(...allP.map(p=>p.x+p.w)):x0+200;
-    const maxB=allP.length?Math.max(...allP.map(p=>p.y+p.h)):TOP_Y+200;
     const totalW=maxR-POOL_X+70;
-    const totalH=maxB-TOP_Y+40;
-    return {pos,lt,lH,totalW,totalH};
+    const totalH=cumY-TOP_Y;
+    return {pos,lt,laneH,totalW,totalH};
   }
+
 
   function connMap(nodes,flows) {
     const inc={},out={};
@@ -287,7 +303,7 @@ const BpmnEngine = (() => {
     const lids={}; if(!solo) actors.forEach(a=>{lids[a]=uid('Lane');});
 
     const {nodes,flows}=buildFlow(steps,actors);
-    const {pos,lt,lH,totalW,totalH}=assignPos(nodes,flows,actors,solo);
+    const {pos,lt,laneH,totalW,totalH}=assignPos(nodes,flows,actors,solo);
     const {inc,out}=connMap(nodes,flows);
 
     const xdef={};
@@ -295,7 +311,7 @@ const BpmnEngine = (() => {
 
     /* Lane XML */
     const lxml=solo?'':actors.map(a=>{
-      const refs=nodes.filter(n=>n.actor===a&&!n.isReject).map(n=>`        <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
+      const refs=nodes.filter(n=>n.actor===a).map(n=>`        <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
       return `      <bpmn:lane id="${lids[a]}" name="${esc(a)}">\n${refs}\n      </bpmn:lane>`;
     }).join('\n');
     const lsxml=solo?'':`    <bpmn:laneSet id="${lsid}">\n${lxml}\n    </bpmn:laneSet>\n`;
@@ -334,9 +350,9 @@ const BpmnEngine = (() => {
     /* BPMNDI shapes */
     let shapes='';
     shapes+=`    <bpmndi:BPMNShape id="${ptid}_di" bpmnElement="${ptid}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X}" y="${TOP_Y}" width="${totalW}" height="${totalH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-    if(!solo) actors.forEach((a,i)=>{
-      const lid=lids[a],ly=TOP_Y+i*lH,lx=POOL_X+POOL_LBL;
-      shapes+=`    <bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true">\n      <dc:Bounds x="${lx}" y="${ly}" width="${totalW-POOL_LBL}" height="${lH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
+    if(!solo) actors.forEach(a=>{
+      const lid=lids[a],ly=lt[a],lx=POOL_X+POOL_LBL,lhh=laneH[a];
+      shapes+=`    <bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true">\n      <dc:Bounds x="${lx}" y="${ly}" width="${totalW-POOL_LBL}" height="${lhh}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
     });
     nodes.filter(n=>n.id&&pos[n.id]).forEach(n=>{
       const p=pos[n.id];

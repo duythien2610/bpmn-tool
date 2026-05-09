@@ -257,35 +257,40 @@ const BpmnEngine = (() => {
     return {inc,out};
   }
 
-  /* ── waypoints ── */
+  /* ── waypoints — strict orthogonal BPMN routing ── */
   function waypoints(sp, tp, sn, tn) {
     const srcGW=sn&&sn.type&&sn.type.includes('Gateway');
     if(!sp||!tp) return [[0,0],[100,0]];
     const sy=sp.cy, ty=tp.cy, diff=ty-sy;
 
-    // Reject: gateway bottom → down → reject task left
+    // Gateway → reject task directly below: exit BOTTOM → straight DOWN → enter TOP of task
     if (tn&&tn.isReject&&srcGW) {
-      const gcx=sp.cx, gbot=sp.y+sp.h;
-      return [[gcx,gbot],[gcx,ty],[tp.x,ty]];
+      return [[sp.cx, sp.y+sp.h], [sp.cx, tp.y]];
     }
-    // Reject task → reject end (horizontal)
+    // Reject task → reject end event: exit RIGHT → straight horizontal → enter LEFT
     if (tn&&tn.isReject&&!srcGW) {
-      return [[sp.x+sp.w,sy],[tp.x,ty]];
+      return [[sp.x+sp.w, sp.cy], [tp.x, tp.cy]];
     }
 
-    // Same lane
-    if (Math.abs(diff)<=5) return [[sp.x+sp.w,sy],[tp.x,ty]];
+    // Same lane (horizontal): exit RIGHT → enter LEFT
+    if (Math.abs(diff)<=5) return [[sp.x+sp.w, sy], [tp.x, ty]];
 
-    // Gateway → cross-lane
+    // Gateway → different lane: exit BOTTOM or TOP → go vertical → then horizontal to target LEFT
     if (srcGW) {
-      if(diff>0) return [[sp.cx,sp.y+sp.h],[sp.cx,ty],[tp.x,ty]];
-      else       return [[sp.cx,sp.y],[sp.cx,ty],[tp.x,ty]];
+      if (diff>0) {
+        // Going down: exit bottom → down to target row → right to target
+        return [[sp.cx, sp.y+sp.h], [sp.cx, ty], [tp.x, ty]];
+      } else {
+        // Going up: exit top → up to target row → right to target
+        return [[sp.cx, sp.y], [sp.cx, ty], [tp.x, ty]];
+      }
     }
 
-    // General cross-lane
+    // General cross-lane: exit RIGHT → midpoint → turn vertical → enter LEFT
     const mx=Math.round((sp.x+sp.w+tp.x)/2);
-    return [[sp.x+sp.w,sy],[mx,sy],[mx,ty],[tp.x,ty]];
+    return [[sp.x+sp.w, sy], [mx, sy], [mx, ty], [tp.x, ty]];
   }
+
 
   /* ── generate XML ── */
   function generate(title, steps) {
@@ -373,9 +378,22 @@ const BpmnEngine = (() => {
       const sn=nById[f.from],tn=nById[f.to];
       const wps=waypoints(sp,tp,sn,tn);
       const wxml=wps.map(([x,y])=>`      <di:waypoint x="${x}" y="${y}" />`).join('\n');
-      const lmx=Math.round((wps[0][0]+wps[wps.length-1][0])/2)-15;
-      const lmy=Math.round((wps[0][1]+wps[wps.length-1][1])/2)-7;
-      const lbl=f.name?`\n      <bpmndi:BPMNLabel><dc:Bounds x="${lmx}" y="${lmy}" width="60" height="14" /></bpmndi:BPMNLabel>`:'';
+      let lbl='';
+      if (f.name) {
+        const isVertical = wps.length===2 && Math.abs(wps[0][0]-wps[1][0])<=2;
+        const lblW = Math.min(Math.max(f.name.length*7, 40), 120);
+        let lx, ly;
+        if (isVertical) {
+          // Vertical flow: label to the LEFT of the line
+          lx = wps[0][0] - lblW - 5;
+          ly = Math.round((wps[0][1]+wps[1][1])/2) - 7;
+        } else {
+          // Horizontal/angled flow: label ABOVE the first segment midpoint
+          lx = Math.round((wps[0][0]+wps[1][0])/2) - Math.round(lblW/2);
+          ly = Math.min(wps[0][1], wps[1][1]) - 18;
+        }
+        lbl = `\n      <bpmndi:BPMNLabel><dc:Bounds x="${lx}" y="${ly}" width="${lblW}" height="14" /></bpmndi:BPMNLabel>`;
+      }
       edges+=`    <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${wxml}${lbl}\n    </bpmndi:BPMNEdge>\n`;
     });
 

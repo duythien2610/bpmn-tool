@@ -1,4 +1,4 @@
-/** BPMN Engine v7.2 — Fix: merge node AFTER branches, cross-lane waypoints */
+/** BPMN Engine v7.3 — Binary XOR cascade fix + reject-branch layout */
 const BpmnEngine = (() => {
   let _n = 0;
   const uid = p => `${p}_${(++_n).toString(36)}${Math.random().toString(36).slice(2,5)}`;
@@ -14,9 +14,8 @@ const BpmnEngine = (() => {
   };
   const sz = t => { const v=SZ[t]||'100,80'; const [w,h]=v.split(',').map(Number); return {w,h}; };
 
-  // Layout constants
   const POOL_X=100, POOL_LBL=30, LANE_LBL=30;
-  const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=55, REJ_DROP=40;
+  const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=55, REJ_DY=100;
 
   const TMAP={task:'task',usertask:'userTask',servicetask:'serviceTask',sendtask:'sendTask',
     receivetask:'receiveTask',manualtask:'manualTask',scripttask:'scriptTask',
@@ -25,24 +24,29 @@ const BpmnEngine = (() => {
     receive:'receiveTask',script:'scriptTask',rule:'businessRuleTask',call:'callActivity'};
   const rtype = t => TMAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
 
-  function xorLabel(conds) {
-    const neg=/\b(kh[oô]ng|ch[uư]a|not|invalid)\b/gi;
-    const cl=conds.map(c=>c.replace(neg,'').replace(/\s+/g,' ').trim());
-    const ws=cl[0].toLowerCase().split(/\s+/).filter(w=>w.length>2&&cl.every(c=>c.toLowerCase().includes(w)));
-    return ws.length?ws.join(' '):(cl[0]||'Decision');
+  function xorLabel(c1, c2) {
+    const neg=/\b(kh[oô]ng|ch[uư]a|not|invalid|chưa)\b/gi;
+    const a=c1.replace(neg,'').replace(/\s+/g,' ').trim();
+    const b=c2.replace(neg,'').replace(/\s+/g,' ').trim();
+    const wa=a.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+    const shared=wa.filter(w=>b.toLowerCase().includes(w));
+    return (shared.length ? shared.join(' ') : a) || 'Decision';
   }
 
-  /* ─────────────────────────────────────────
-     buildFlow — KEY FIX: merge pushed AFTER branches
-     ───────────────────────────────────────── */
+  /* ── buildFlow ─────────────────────────────────────
+     KEY CHANGE v7.3: Only group EXACTLY 2 consecutive
+     conditionals (binary decision). First branch = reject
+     (task → End), second = continue (task → main flow).
+     This correctly handles cascading validation patterns.
+     ────────────────────────────────────────────────── */
   function buildFlow(steps, actors) {
     const nodes=[], flows=[];
     const first=actors[0]||'System';
     const sid=uid('SE');
     nodes.push({id:sid,type:'startEvent',name:'Start',actor:first});
-    let prev=sid, openGw=null;
+    let prev=sid;
 
-    for (let i=0;i<steps.length;i++) {
+    for (let i=0; i<steps.length; i++) {
       const s=steps[i];
       const actor=(s.actor||'').trim()||first;
       const action=(s.action||'Step '+(i+1)).substring(0,80);
@@ -54,16 +58,10 @@ const BpmnEngine = (() => {
       const type=rtype(s.type);
       const tid=uid('T');
 
-      if (openGw&&gwT!=='parallelGateway') {
-        flows.push({id:openGw.yid,from:openGw.gid,to:tid,name:'Yes',condition:'Yes'});
-        openGw=null;
-      }
-
-      nodes.push({id:tid,type,name:action,actor});
-      flows.push({id:uid('F'),from:prev,to:tid});
-
-      /* AND */
+      /* ── AND gateway ── */
       if (gwT==='parallelGateway') {
+        nodes.push({id:tid,type,name:action,actor});
+        flows.push({id:uid('F'),from:prev,to:tid});
         const spid=uid('GW'), jnid=uid('GW');
         nodes.push({id:spid,type:'parallelGateway',name:'',actor});
         flows.push({id:uid('F'),from:tid,to:spid});
@@ -74,117 +72,148 @@ const BpmnEngine = (() => {
         }
         if(!bst.length){
           flows.push({id:uid('F'),from:spid,to:jnid});
-          flows.push({id:uid('F'),from:spid,to:jnid});
         } else {
           bst.forEach(b=>{
             const ba=(b.actor||'').trim()||actor,bid=uid('T');
-            nodes.push({id:bid,type:rtype(b.type),name:b.action.substring(0,80),actor:ba,isBranch:true,gwGroup:jnid});
+            nodes.push({id:bid,type:rtype(b.type),name:b.action.substring(0,80),actor:ba,isBranch:true});
             flows.push({id:uid('F'),from:spid,to:bid});
             flows.push({id:uid('F'),from:bid,to:jnid});
           });
           i=j-1;
         }
-        // push join AFTER branches
         nodes.push({id:jnid,type:'parallelGateway',name:'',actor,isJoin:true});
         prev=jnid;
 
-      /* XOR multi-branch */
-      } else if (gwT==='exclusiveGateway'&&cond) {
-        const grp=[{actor,action,type,cond,tid}];
-        let j=i+1;
-        while(j<steps.length){
-          const nx=steps[j],ng=(nx.gatewayType||'').toLowerCase().replace(/[-_ ]/g,''),nc=(nx.condition||'').trim();
-          if(nc&&nx.action&&(ng==='exclusivegateway'||!ng)){
-            grp.push({actor:(nx.actor||'').trim()||first,action:nx.action.substring(0,80),type:rtype(nx.type),cond:nc,tid:uid('T')});
-            j++;
-          } else break;
-        }
+      /* ── XOR binary decision (pair of 2 conditions) ── */
+      } else if (gwT==='exclusiveGateway' && cond) {
+        // Peek: is the NEXT step also conditional?
+        const nx = (i+1 < steps.length) ? steps[i+1] : null;
+        const nxCond = nx ? (nx.condition||'').trim() : '';
+        const nxGT = nx ? (nx.gatewayType||'').toLowerCase().replace(/[-_ ]/g,'') : '';
+        const nxIsXor = nxCond && (nxGT==='exclusivegateway'||!nxGT||nxGT==='');
 
-        if(grp.length>=2) {
-          nodes.pop(); flows.pop(); // remove pre-created task+flow
-          const gwid=uid('GW'), mid=uid('GW');
-          const gwlbl=xorLabel(grp.map(b=>b.cond))+'?';
-          nodes.push({id:gwid,type:'exclusiveGateway',name:gwlbl,actor:grp[0].actor});
+        if (nx && nxIsXor) {
+          /* ── BINARY XOR: reject branch (End) + continue branch ── */
+          // Don't create task for current step yet — gateway goes directly
+          const gwid=uid('GW');
+          const lbl=xorLabel(cond, nxCond)+'?';
+          nodes.push({id:gwid,type:'exclusiveGateway',name:lbl,actor});
           flows.push({id:uid('F'),from:prev,to:gwid});
+
+          // Branch 1 (reject): gateway → task → End
+          const rejTid=tid;
+          nodes.push({id:rejTid,type,name:action,actor,isReject:true,gwRef:gwid});
+          const rejFid=uid('F');
+          flows.push({id:rejFid,from:gwid,to:rejTid,name:cond,condition:cond});
+          const rejEnd=uid('EE');
+          nodes.push({id:rejEnd,type:'endEvent',name:'End',actor,isReject:true,gwRef:gwid,rejAfter:rejTid});
+          flows.push({id:uid('F'),from:rejTid,to:rejEnd});
+
+          // Branch 2 (continue): gateway → task → main flow continues
+          const contActor=(nx.actor||'').trim()||first;
+          const contAction=(nx.action||'').substring(0,80);
+          const contType=rtype(nx.type);
+          const contTid=uid('T');
           const defFid=uid('F');
-          // Push branch tasks first
-          grp.forEach((b,bi)=>{
-            nodes.push({id:b.tid,type:b.type,name:b.action,actor:b.actor,isBranch:true,gwGroup:mid});
-            const fid=bi===0?defFid:uid('F');
-            flows.push({id:fid,from:gwid,to:b.tid,name:b.cond,condition:b.cond,isDefault:bi===0});
-            flows.push({id:uid('F'),from:b.tid,to:mid});
-          });
-          // Push merge AFTER all branches
-          nodes.push({id:mid,type:'exclusiveGateway',name:'',actor:grp[0].actor,isJoin:true});
+          nodes.push({id:contTid,type:contType,name:contAction,actor:contActor});
+          flows.push({id:defFid,from:gwid,to:contTid,name:nxCond,condition:nxCond,isDefault:true});
+
           nodes.find(n=>n.id===gwid)._defFid=defFid;
-          prev=mid; i=j-1;
+          prev=contTid;
+          i++; // skip next step (consumed as branch 2)
 
         } else {
-          // Single cond → yes/no + reject end
+          /* ── SINGLE conditional: yes/no with reject end ── */
+          nodes.push({id:tid,type,name:action,actor});
+          flows.push({id:uid('F'),from:prev,to:tid});
           const gwid=uid('GW');
-          nodes.push({id:gwid,type:'exclusiveGateway',name:cond.endsWith('?')?cond:cond+'?',actor});
+          const gwlbl=cond.endsWith('?')?cond:cond+'?';
+          nodes.push({id:gwid,type:'exclusiveGateway',name:gwlbl,actor});
           flows.push({id:uid('F'),from:tid,to:gwid});
-          const neid=uid('EE'),nfid=uid('F');
-          nodes.push({id:neid,type:'endEvent',name:'End (Rejected)',actor,isReject:true,gwRef:gwid});
-          flows.push({id:nfid,from:gwid,to:neid,name:'No',condition:'No',isDefault:false});
-          const yid=uid('F');
-          openGw={gid:gwid,yid,defFid:nfid};
+          const noId=uid('EE'),noFid=uid('F');
+          nodes.push({id:noId,type:'endEvent',name:'End (Rejected)',actor,isReject:true,gwRef:gwid});
+          flows.push({id:noFid,from:gwid,to:noId,name:'No',condition:'No'});
+          const yFid=uid('F');
+          // Yes branch deferred — next step connects here
           prev=gwid;
+          // Store open gateway for the next non-conditional step to close
+          nodes._openGw={gid:gwid,yFid};
         }
 
-      /* OR */
-      } else if (gwT==='inclusiveGateway'&&cond) {
-        const gwid=uid('GW');
-        nodes.push({id:gwid,type:'inclusiveGateway',name:cond+'?',actor});
-        flows.push({id:uid('F'),from:tid,to:gwid});
-        const neid=uid('EE'),nfid=uid('F');
-        nodes.push({id:neid,type:'endEvent',name:'End (Skipped)',actor,isReject:true,gwRef:gwid});
-        flows.push({id:nfid,from:gwid,to:neid,name:'No',condition:'No'});
-        const yid=uid('F');
-        openGw={gid:gwid,yid,defFid:nfid};
-        prev=gwid;
+      /* ── Normal task (no condition) ── */
       } else {
+        nodes.push({id:tid,type,name:action,actor});
+        // Close any pending single-XOR yes-branch
+        if (nodes._openGw) {
+          flows.push({id:nodes._openGw.yFid,from:nodes._openGw.gid,to:tid,name:'Yes',condition:'Yes'});
+          nodes._openGw=null;
+        } else {
+          flows.push({id:uid('F'),from:prev,to:tid});
+        }
         prev=tid;
       }
     }
 
+    // Final end
     const la=steps.length?((steps[steps.length-1].actor||'').trim()||first):first;
     const eid=uid('EE');
     nodes.push({id:eid,type:'endEvent',name:'End',actor:la});
-    if(openGw) flows.push({id:openGw.yid,from:openGw.gid,to:eid,name:'Yes',condition:'Yes'});
-    else flows.push({id:uid('F'),from:prev,to:eid});
+    if (nodes._openGw) {
+      flows.push({id:nodes._openGw.yFid,from:nodes._openGw.gid,to:eid,name:'Yes',condition:'Yes'});
+      nodes._openGw=null;
+    } else {
+      flows.push({id:uid('F'),from:prev,to:eid});
+    }
+    delete nodes._openGw;
     return {nodes,flows};
   }
 
-  /* ─────────────────────────────────────────
-     assignPos — branches same col, join after
-     ───────────────────────────────────────── */
-  function assignPos(nodes, actors, solo) {
+  function assignPos(nodes, flows, actors, solo) {
     const lH=solo?LANE_SOLO:LANE_H;
-    const lt={};
-    actors.forEach((a,i)=>{lt[a]=TOP_Y+i*lH;});
+    const lt={}; actors.forEach((a,i)=>{lt[a]=TOP_Y+i*lH;});
     const x0=POOL_X+POOL_LBL+(solo?0:LANE_LBL)+GAP;
     let cx=x0, brMaxX=0;
     const pos={};
+    const poolBot=TOP_Y+actors.length*lH;
+    let rejRow=0; // which reject row we're on
+
+    // Build source→target map from flows for reject End positioning
+    const flowFrom={};
+    flows.forEach(f=>{flowFrom[f.to]=f.from;});
 
     nodes.forEach(n=>{
+      if(typeof n!=='object'||!n.id) return;
       const {w,h}=sz(n.type);
       const lTop=lt[n.actor]??TOP_Y;
       const lMid=lTop+lH/2;
-      const lBot=lTop+lH;
 
-      if(n.isReject&&n.gwRef&&pos[n.gwRef]) {
-        // Place reject end BELOW its gateway
-        const gp=pos[n.gwRef];
-        const ex=gp.cx, ey=lBot+REJ_DROP+h/2;
-        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:ex,cy:Math.round(ey)};
-      } else if(n.isBranch) {
-        // All branches share same X column (curX unchanged)
+      if (n.isReject && n.type!=='endEvent') {
+        // Reject TASK: place below pool, same X as its gateway
+        const rejY=poolBot+25+rejRow*(h+30);
+        if (n.gwRef && pos[n.gwRef]) {
+          const gp=pos[n.gwRef];
+          pos[n.id]={x:Math.round(gp.cx-w/2),y:rejY,w,h,cx:gp.cx,cy:rejY+Math.round(h/2)};
+        } else {
+          pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
+        }
+      } else if (n.isReject && n.type==='endEvent') {
+        // Reject END EVENT: place to the RIGHT of the reject task that feeds into it
+        const srcId=flowFrom[n.id];
+        if (srcId && pos[srcId]) {
+          const rp=pos[srcId];
+          const ex=rp.x+rp.w+30;
+          const ey=rp.cy;
+          pos[n.id]={x:ex,y:Math.round(ey-h/2),w,h,cx:ex+Math.round(w/2),cy:ey};
+        } else {
+          const rejY=poolBot+25+rejRow*(h+30);
+          pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
+        }
+        rejRow++; // each reject end = new row
+      } else if (n.isBranch) {
         const ex=cx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
-        brMaxX=Math.max(brMaxX,Math.round(ex-w/2)+w);
-      } else if(n.isJoin) {
-        // Place join AFTER all branches
+        brMaxX=Math.max(brMaxX,Math.round(ex)+Math.round(w/2));
+      } else if (n.isJoin) {
         const jx=Math.max(cx,brMaxX+GAP);
         const ex=jx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
@@ -199,89 +228,55 @@ const BpmnEngine = (() => {
 
     const allP=Object.values(pos);
     const maxR=allP.length?Math.max(...allP.map(p=>p.x+p.w)):x0+200;
+    const maxB=allP.length?Math.max(...allP.map(p=>p.y+p.h)):TOP_Y+200;
     const totalW=maxR-POOL_X+70;
-    const hasReject=nodes.some(n=>n.isReject);
-    const totalH=actors.length*lH+(hasReject?REJ_DROP+60:0);
+    const totalH=maxB-TOP_Y+40;
     return {pos,lt,lH,totalW,totalH};
   }
 
   function connMap(nodes,flows) {
     const inc={},out={};
-    nodes.forEach(n=>{inc[n.id]=[];out[n.id]=[];});
-    flows.forEach(f=>{out[f.from]&&out[f.from].push(f.id);inc[f.to]&&inc[f.to].push(f.id);});
+    nodes.forEach(n=>{if(n.id){inc[n.id]=[];out[n.id]=[];}});
+    flows.forEach(f=>{if(out[f.from])out[f.from].push(f.id);if(inc[f.to])inc[f.to].push(f.id);});
     return {inc,out};
   }
 
-  /* ─────────────────────────────────────────
-     Waypoint routing — proper cross-lane BPMN
-     Rules (Camunda Modeler style):
-       • Same lane → straight horizontal
-       • Gateway → lower lane task: exit BOTTOM of GW → down → left of task
-       • Gateway → upper lane task: exit TOP of GW → up → left of task
-       • Lower branch → upper merge: exit RIGHT of task → right to merge cx → up to merge cy → left
-       • Reject end: exit BOTTOM of gateway → down → top of reject event
-     ───────────────────────────────────────── */
+  /* ── waypoints ── */
   function waypoints(sp, tp, sn, tn) {
-    const srcIsGW = sn && sn.type && sn.type.includes('Gateway');
-    const tgtIsGW = tn && tn.type && tn.type.includes('Gateway');
+    const srcGW=sn&&sn.type&&sn.type.includes('Gateway');
+    if(!sp||!tp) return [[0,0],[100,0]];
+    const sy=sp.cy, ty=tp.cy, diff=ty-sy;
 
-    // ── Reject end: go straight DOWN from gateway bottom ──
-    if (tn && tn.isReject) {
-      const gcx = sp.cx, gbot = sp.y + sp.h;
-      const tcx = tp.cx, ttop = tp.y;
-      return [[gcx, gbot], [gcx, ttop], [tcx, ttop], [tcx, tp.cy]];
+    // Reject: gateway bottom → down → reject task left
+    if (tn&&tn.isReject&&srcGW) {
+      const gcx=sp.cx, gbot=sp.y+sp.h;
+      return [[gcx,gbot],[gcx,ty],[tp.x,ty]];
+    }
+    // Reject task → reject end (horizontal)
+    if (tn&&tn.isReject&&!srcGW) {
+      return [[sp.x+sp.w,sy],[tp.x,ty]];
     }
 
-    const sy = sp.cy, ty = tp.cy;
-    const diff = ty - sy;
+    // Same lane
+    if (Math.abs(diff)<=5) return [[sp.x+sp.w,sy],[tp.x,ty]];
 
-    // ── Same lane (within 5px) → straight ──
-    if (Math.abs(diff) <= 5) {
-      return [[sp.x + sp.w, sy], [tp.x, ty]];
+    // Gateway → cross-lane
+    if (srcGW) {
+      if(diff>0) return [[sp.cx,sp.y+sp.h],[sp.cx,ty],[tp.x,ty]];
+      else       return [[sp.cx,sp.y],[sp.cx,ty],[tp.x,ty]];
     }
 
-    // ── Gateway → task in different lane ──
-    if (srcIsGW) {
-      if (diff > 0) {
-        // Going DOWN: exit BOTTOM of gateway → drop to target cy → enter LEFT
-        const gbot = sp.y + sp.h, gcx = sp.cx;
-        return [[gcx, gbot], [gcx, ty], [tp.x, ty]];
-      } else {
-        // Going UP: exit TOP of gateway → rise to target cy → enter LEFT
-        const gtop = sp.y, gcx = sp.cx;
-        return [[gcx, gtop], [gcx, ty], [tp.x, ty]];
-      }
-    }
-
-    // ── Task in lower lane → XOR merge in upper lane ──
-    if (tgtIsGW && diff < 0) {
-      // Exit RIGHT of task → go right to merge cx → rise to merge cy → enter LEFT
-      const mcx  = tp.cx;
-      const mbot = tp.y + tp.h;
-      return [[sp.x + sp.w, sy], [mcx, sy], [mcx, mbot], [mcx, ty]];
-    }
-
-    // ── Task in upper lane → XOR merge in lower lane ──
-    if (tgtIsGW && diff > 0) {
-      const mcx  = tp.cx;
-      const mtop = tp.y;
-      return [[sp.x + sp.w, sy], [mcx, sy], [mcx, mtop], [mcx, ty]];
-    }
-
-    // ── Default cross-lane: right → midX → drop → left ──
-    const midX = Math.round((sp.x + sp.w + tp.x) / 2);
-    return [[sp.x + sp.w, sy], [midX, sy], [midX, ty], [tp.x, ty]];
+    // General cross-lane
+    const mx=Math.round((sp.x+sp.w+tp.x)/2);
+    return [[sp.x+sp.w,sy],[mx,sy],[mx,ty],[tp.x,ty]];
   }
 
-
-  /* ─────────────────────────────────────────
-     generate — main entry point
-     ───────────────────────────────────────── */
+  /* ── generate XML ── */
   function generate(title, steps) {
     resetIds();
     if(!steps||!steps.length) steps=[
-      {step:1,actor:'Customer',action:'Submit request',condition:'',type:'userTask',gatewayType:''},
-      {step:2,actor:'System',  action:'Process request',condition:'',type:'serviceTask',gatewayType:''},
+      {step:1,actor:'Customer',action:'Submit request',type:'userTask'},
+      {step:2,actor:'System',action:'Process request',type:'serviceTask'},
     ];
     const actSeen=[];
     steps.forEach(s=>{const a=(s.actor||'').trim()||'System';if(!actSeen.includes(a))actSeen.push(a);});
@@ -289,33 +284,24 @@ const BpmnEngine = (() => {
     const solo=actors.length===1;
     const T=esc(title||'Process');
     const pid=uid('Proc'),cid=uid('Col'),ptid=uid('Part'),lsid=uid('LS');
-    const lids={};
-    if(!solo)actors.forEach(a=>{lids[a]=uid('Lane');});
+    const lids={}; if(!solo) actors.forEach(a=>{lids[a]=uid('Lane');});
 
     const {nodes,flows}=buildFlow(steps,actors);
-    const {pos,lt,lH,totalW,totalH}=assignPos(nodes,actors,solo);
+    const {pos,lt,lH,totalW,totalH}=assignPos(nodes,flows,actors,solo);
     const {inc,out}=connMap(nodes,flows);
 
-    // XOR default flow map
     const xdef={};
     nodes.forEach(n=>{if(n._defFid)xdef[n.id]=n._defFid;});
-    flows.forEach(f=>{
-      if(f.name==='Yes'&&f.condition==='Yes'){
-        const s=nodes.find(n=>n.id===f.from);
-        if(s&&s.type==='exclusiveGateway'&&!xdef[f.from])xdef[f.from]=f.id;
-      }
-    });
 
     /* Lane XML */
     const lxml=solo?'':actors.map(a=>{
-      const refs=nodes.filter(n=>n.actor===a).map(n=>`        <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
+      const refs=nodes.filter(n=>n.actor===a&&!n.isReject).map(n=>`        <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
       return `      <bpmn:lane id="${lids[a]}" name="${esc(a)}">\n${refs}\n      </bpmn:lane>`;
     }).join('\n');
-    const lsxml=solo?'':
-      `    <bpmn:laneSet id="${lsid}">\n${lxml}\n    </bpmn:laneSet>\n`;
+    const lsxml=solo?'':`    <bpmn:laneSet id="${lsid}">\n${lxml}\n    </bpmn:laneSet>\n`;
 
-    /* Nodes semantic */
-    const nxml=nodes.map(n=>{
+    /* Nodes */
+    const nxml=nodes.filter(n=>n.id).map(n=>{
       const nm=n.name?` name="${esc(n.name)}"`:'';
       const ins=(inc[n.id]||[]).map(id=>`      <bpmn:incoming>${id}</bpmn:incoming>`).join('\n');
       const ots=(out[n.id]||[]).map(id=>`      <bpmn:outgoing>${id}</bpmn:outgoing>`).join('\n');
@@ -333,14 +319,14 @@ const BpmnEngine = (() => {
       return w(n.type);
     }).join('\n');
 
-    /* Flows semantic */
-    const nById=Object.fromEntries(nodes.map(n=>[n.id,n]));
+    /* Flows */
+    const nById=Object.fromEntries(nodes.filter(n=>n.id).map(n=>[n.id,n]));
     const fxml=flows.map(f=>{
       const nm=f.name?` name="${esc(f.name)}"`:' name=""';
       const src=nById[f.from];
-      const isXorSrc=src&&src.type==='exclusiveGateway';
+      const isXor=src&&src.type==='exclusiveGateway';
       const isDef=xdef[f.from]===f.id;
-      const needCond=f.condition&&isXorSrc&&!isDef;
+      const needCond=f.condition&&isXor&&!isDef;
       if(needCond) return `    <bpmn:sequenceFlow id="${f.id}"${nm} sourceRef="${f.from}" targetRef="${f.to}">\n      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${esc(f.condition)}</bpmn:conditionExpression>\n    </bpmn:sequenceFlow>`;
       return `    <bpmn:sequenceFlow id="${f.id}"${nm} sourceRef="${f.from}" targetRef="${f.to}" />`;
     }).join('\n');
@@ -348,12 +334,12 @@ const BpmnEngine = (() => {
     /* BPMNDI shapes */
     let shapes='';
     shapes+=`    <bpmndi:BPMNShape id="${ptid}_di" bpmnElement="${ptid}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X}" y="${TOP_Y}" width="${totalW}" height="${totalH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-    if(!solo)actors.forEach((a,i)=>{
+    if(!solo) actors.forEach((a,i)=>{
       const lid=lids[a],ly=TOP_Y+i*lH,lx=POOL_X+POOL_LBL;
       shapes+=`    <bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true">\n      <dc:Bounds x="${lx}" y="${ly}" width="${totalW-POOL_LBL}" height="${lH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
     });
-    nodes.forEach(n=>{
-      const p=pos[n.id]; if(!p) return;
+    nodes.filter(n=>n.id&&pos[n.id]).forEach(n=>{
+      const p=pos[n.id];
       const isEv=n.type.includes('Event'),isGW=n.type.includes('Gateway');
       let lbl='';
       if(n.name){
@@ -368,12 +354,12 @@ const BpmnEngine = (() => {
     let edges='';
     flows.forEach(f=>{
       const sp=pos[f.from],tp=pos[f.to]; if(!sp||!tp) return;
-      const tn=nById[f.to],sn=nById[f.from];
-      const wps=waypoints(sp,tp,sn&&sn.type,tn);
+      const sn=nById[f.from],tn=nById[f.to];
+      const wps=waypoints(sp,tp,sn,tn);
       const wxml=wps.map(([x,y])=>`      <di:waypoint x="${x}" y="${y}" />`).join('\n');
-      const lmx=Math.round((wps[0][0]+wps[wps.length-1][0])/2)-12;
+      const lmx=Math.round((wps[0][0]+wps[wps.length-1][0])/2)-15;
       const lmy=Math.round((wps[0][1]+wps[wps.length-1][1])/2)-7;
-      const lbl=f.name?`\n      <bpmndi:BPMNLabel><dc:Bounds x="${lmx}" y="${lmy}" width="36" height="14" /></bpmndi:BPMNLabel>`:'';
+      const lbl=f.name?`\n      <bpmndi:BPMNLabel><dc:Bounds x="${lmx}" y="${lmy}" width="60" height="14" /></bpmndi:BPMNLabel>`:'';
       edges+=`    <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${wxml}${lbl}\n    </bpmndi:BPMNEdge>\n`;
     });
 
@@ -385,7 +371,7 @@ const BpmnEngine = (() => {
   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn"
-  exporter="BPMN Studio" exporterVersion="7.2">
+  exporter="BPMN Studio" exporterVersion="7.3">
 
   <bpmn:collaboration id="${cid}">
     <bpmn:participant id="${ptid}" name="${T}" processRef="${pid}" />

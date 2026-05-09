@@ -51,6 +51,20 @@ const EXAMPLES = {
 7. Director: Approve high-value invoice
 8. Accountant: Process payment to supplier
 9. System: Record payment and archive accounting documents`
+  },
+  procurement: {
+    title: 'Goods Procurement Process (AND Gateway)',
+    desc: `1. Purchaser: Create purchase order
+2. Manager: Approve purchase order
+3. If purchase order rejected: Purchaser: Revise purchase order
+4. If purchase order approved: Purchaser: Send order to supplier
+5. Simultaneously: Warehouse Staff: Prepare receiving area
+6. Simultaneously: Accountant: Prepare payment documents
+7. Warehouse Staff: Receive and inspect delivered goods
+8. If goods do not meet specifications: Warehouse Staff: Return goods to supplier
+9. If goods meet specifications: Warehouse Staff: Confirm receipt in system
+10. Accountant: Process payment to supplier
+11. System: Update inventory and archive documents`
   }
 };
 
@@ -1208,7 +1222,7 @@ function parseFallback(title, desc) {
     const condPrefixRe = /^(n[eế]u|if|khi|when|tr[uư][oờ]ng\s*h[oợ]p|trong\s*tr[uư][oờ]ng\s*h[oợ]p)\b/i;
     const isCond = condPrefixRe.test(line);
 
-    const parallelPrefixRe = /^([dđ][oồ]ng\s*th[oờ]i|song\s*song|parallel|and)\b/i;
+    const parallelPrefixRe = /^([dđ][oồ]ng\s*th[oờ]i|song\s*song|c[uù]ng\s*l[uú]c|parallel|simultaneously|concurrently|at\s*the\s*same\s*time|and)\b/i;
     const isParallel = parallelPrefixRe.test(line);
 
     let condition = '';

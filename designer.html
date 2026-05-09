@@ -29,7 +29,7 @@
   <div class="header-actions">
     <span id="server-status-badge" class="server-badge offline">⬤ Offline</span>
     <!-- Process Catalog -->
-    <button class="btn-header" id="btn-catalog" title="Process Catalog — lưu & tải quy trình">
+    <button class="btn-header" id="btn-catalog" title="Process Catalog — lưu & tải processes">
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
         <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
         <rect x="9" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
@@ -90,24 +90,24 @@
   <div class="step-indicator" id="step-indicator-1">
     <div class="step-circle">1</div>
     <div class="step-copy">
-      <strong>Mô tả quy trình</strong>
-      <span>Nhập nguồn nghiệp vụ</span>
+      <strong>Process Description</strong>
+      <span>Enter business source</span>
     </div>
   </div>
   <div class="step-line" id="line-1-2"></div>
   <div class="step-indicator" id="step-indicator-2">
     <div class="step-circle">2</div>
     <div class="step-copy">
-      <strong>Xem xét logic</strong>
-      <span>Kiểm tra lane và flow</span>
+      <strong>Review Logic</strong>
+      <span>Check lanes &amp; flow</span>
     </div>
   </div>
   <div class="step-line" id="line-2-3"></div>
   <div class="step-indicator" id="step-indicator-3">
     <div class="step-circle">3</div>
     <div class="step-copy">
-      <strong>Sơ đồ BPMN</strong>
-      <span>Chỉnh và export output</span>
+      <strong>BPMN Diagram</strong>
+      <span>Edit &amp; Export</span>
     </div>
   </div>
 </nav>
@@ -121,21 +121,21 @@
       <section class="workspace-hero">
         <div class="workspace-hero-copy">
           <span class="prompt-guidance-kicker">Step 1 · Capture</span>
-          <h1>Tạo đầu vào rõ ràng để AI tách đúng actor, lane và nhánh điều kiện.</h1>
+          <h1>Create clear input so AI correctly identifies actors, lanes and condition branches.</h1>
           <p>Đây là bước nhập liệu nghiệp vụ. Viết theo từng hành động ngắn, actor ở đầu câu, và dùng “Nếu...” cho điều kiện để giảm lỗi parse.</p>
         </div>
         <div class="workspace-hero-stats">
           <div class="hero-stat-card">
             <strong id="prompt-word-count">0</strong>
-            <span>Từ trong mô tả</span>
+            <span>Words in description</span>
           </div>
           <div class="hero-stat-card">
             <strong id="prompt-line-count">0</strong>
-            <span>Dòng nghiệp vụ</span>
+            <span>Business lines</span>
           </div>
           <div class="hero-stat-card hero-stat-card--accent">
-            <strong id="prompt-quality-label">Đang chờ</strong>
-            <span>Chất lượng prompt</span>
+            <strong id="prompt-quality-label">Waiting</strong>
+            <span>Prompt quality</span>
           </div>
         </div>
       </section>
@@ -145,17 +145,17 @@
           <section class="prompt-guidance">
             <div class="prompt-guidance-copy">
               <span class="prompt-guidance-kicker">Input guide</span>
-              <h2>Prompt càng rõ vai trò và nhánh điều kiện thì sơ đồ càng sạch.</h2>
+              <h2>The clearer the roles and condition branches in your prompt, the cleaner the diagram.</h2>
               <p>Ưu tiên mỗi câu là một hành động, ghi rõ ai làm, và tách điều kiện bằng “Nếu...”.</p>
             </div>
             <div class="prompt-guidance-rules">
               <div class="guidance-card">
-                <strong>Prompt tốt</strong>
+                <strong>Good Prompt</strong>
                 <span>Mỗi câu là một hành động, nêu actor nếu có thể, tách điều kiện bằng “Nếu...”.</span>
               </div>
               <div class="guidance-card">
-                <strong>Kết quả tạo ra</strong>
-                <span>Lane rõ trách nhiệm, end event chuẩn, XML tương thích Camunda Modeler.</span>
+                <strong>Generated Output</strong>
+                <span>Clear responsibility lanes, standard end events, Camunda Modeler-compatible XML.</span>
               </div>
             </div>
           </section>
@@ -164,22 +164,22 @@
             <div class="form-card-header">
               <div>
                 <div class="form-card-kicker">Step 1</div>
-                <h3>Mô tả quy trình nguồn</h3>
+                <h3>Process Description nguồn</h3>
               </div>
-              <div class="form-card-badge" id="prompt-status-badge">Chưa đủ dữ liệu</div>
+              <div class="form-card-badge" id="prompt-status-badge">Not enough data</div>
             </div>
 
             <div class="input-group">
               <label class="input-label" for="process-title">
-                Tên quy trình
-                <span class="input-label-hint">— Bắt buộc</span>
+                Process Name
+                <span class="input-label-hint">— Required</span>
               </label>
               <input class="input-field" type="text" id="process-title"
-                placeholder="Ví dụ: Quy trình cấp phát thuốc nhà thuốc" />
+                placeholder="e.g. Online Purchase &amp; Delivery Process" />
             </div>
 
             <div class="input-group">
-              <div class="input-label">Ví dụ nhanh</div>
+              <div class="input-label">Quick Examples</div>
               <div class="chips-row">
                 <button class="chip" data-example="purchase">🛒 Mua hàng online</button>
                 <button class="chip" data-example="pharmacy">💊 Nhà thuốc</button>
@@ -191,12 +191,16 @@
             <div class="input-group">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <label class="input-label" for="process-desc" style="margin-bottom: 0;">
-                  Mô tả quy trình
-                  <span class="input-label-hint">— Theo từng bước, ghi rõ actor (Khách hàng, Hệ thống…)</span>
+                  Process Description
+                  <span class="input-label-hint">— Step by step, specify actor (Customer, System…)</span>
                 </label>
+                <button type="button" id="btn-format-guide" onclick="openFormatGuide()" title="Xem định dạng chuẩn">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  Xem định dạng
+                </button>
                 <button type="button" id="btn-copy-ai-prompt" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-weight: 600;" title="Copy mẫu Prompt chuẩn để nhờ ChatGPT/Gemini viết hộ">
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M5.5 3.5v-1a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-1M4 5.5h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Copy Prompt cho ChatGPT
+                  Copy AI Prompt
                 </button>
               </div>
               <textarea class="input-field" id="process-desc" rows="9"
@@ -207,8 +211,21 @@ Nếu hết hàng: Gửi thông báo hủy đơn cho khách.
 Nếu còn hàng: Đóng gói và chuyển cho shipper.
 Khách hàng nhận hàng và xác nhận."></textarea>
               <div class="prompt-meta-row">
-                <span id="prompt-structure-hint">Mẹo: thêm actor ở đầu câu để lane chính xác hơn.</span>
+                <span id="prompt-structure-hint">Tip: add actor at the start of each line for more accurate lanes.</span>
                 <span id="prompt-char-count">0 ký tự</span>
+              </div>
+            </div>
+
+            <!-- Live Parse Preview -->
+            <div class="input-group" id="parse-preview-group" style="display:none">
+              <div class="parse-preview-wrap">
+                <div class="parse-preview-header">
+                  <span>👁 Live Parse Preview</span>
+                  <span class="ppe-badge ppe-badge--idle" id="ppe-badge">No data yet</span>
+                </div>
+                <div class="parse-preview-list" id="ppe-list">
+                  <div class="ppe-empty">Enter a description above to preview the parse result...</div>
+                </div>
               </div>
             </div>
           </section>
@@ -217,30 +234,30 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         <aside class="input-side">
           <section class="side-card side-card--dark">
             <div class="side-card-kicker">Checklist</div>
-            <h3>Trước khi bấm phân tích</h3>
+            <h3>Before clicking Analyze</h3>
             <ul class="side-checklist">
-              <li>Mỗi dòng nên là 1 hành động chính.</li>
-              <li>Actor nên nằm ở đầu câu.</li>
+              <li>Each line should be 1 main action.</li>
+              <li>Actor should be at the start of the sentence.</li>
               <li>Điều kiện nên viết dạng “Nếu ...: ...”.</li>
               <li>Luồng tự động nên ghi rõ “Hệ thống”.</li>
             </ul>
           </section>
 
           <section class="side-card">
-            <div class="side-card-kicker">Kết quả mong đợi</div>
-            <h3>Hệ thống sẽ tạo</h3>
+            <div class="side-card-kicker">Expected Output</div>
+            <h3>System will generate</h3>
             <div class="side-preview-list">
               <div class="side-preview-item">
-                <strong>Lane theo vai trò</strong>
-                <span>Nhìn rõ trách nhiệm giữa người dùng, hệ thống và bộ phận nghiệp vụ.</span>
+                <strong>Lanes by role</strong>
+                <span>Clearly shows responsibilities between users, systems and business units.</span>
               </div>
               <div class="side-preview-item">
-                <strong>Review trước khi generate</strong>
-                <span>Có thể chỉnh actor, task type và điều kiện trước khi ra BPMN.</span>
+                <strong>Review before generating</strong>
+                <span>Edit actors, task types and conditions before generating BPMN.</span>
               </div>
               <div class="side-preview-item">
-                <strong>XML sẵn cho Camunda</strong>
-                <span>Dùng để mở tiếp trong Camunda Modeler hoặc deploy workflow sau này.</span>
+                <strong>Camunda-ready XML</strong>
+                <span>Ready to open in Camunda Modeler or deploy as workflow.</span>
               </div>
             </div>
           </section>
@@ -254,7 +271,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M8 2v4l2.5 2.5M14 8A6 6 0 1 1 2 8a6 6 0 0 1 12 0Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <span id="analyze-text">Phân tích &amp; Tiếp tục</span>
+        <span id="analyze-text">Analyze &amp; Continue</span>
         <svg class="spinner hidden" id="analyze-spinner" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="60" stroke-dashoffset="40"/>
         </svg>
@@ -271,9 +288,9 @@ Khách hàng nhận hàng và xác nhận."></textarea>
     <div class="review-banner">
       <div>
         <span class="form-card-kicker">Step 2</span>
-        <h3>Rà lại logic trước khi dựng BPMN</h3>
+        <h3>Review logic before building BPMN</h3>
       </div>
-      <p>Đây là điểm kiểm soát quan trọng nhất để tránh lane sai, gateway sai hoặc task bị gộp quá thô.</p>
+      <p>This is the most important checkpoint to avoid wrong lanes, gateways, or overly merged tasks.</p>
     </div>
 
     <!-- Toolbar -->
@@ -283,11 +300,11 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M8.5 10.5 5 7l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          Quay lại
+          Back
         </button>
         <div class="toolbar-sep"></div>
         <div class="toolbar-info">
-          Kiểm tra và chỉnh sửa các bước trước khi tạo sơ đồ.
+          Review and edit steps before generating the diagram.
           <strong id="steps-count-label"></strong>
         </div>
       </div>
@@ -295,7 +312,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        Thêm bước
+        Add Step
       </button>
     </div>
 
@@ -322,9 +339,9 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <tr>
             <th style="width:48px">#</th>
             <th style="width:140px">Actor / Swimlane</th>
-            <th>Action / Hành động</th>
+            <th>Action</th>
             <th style="width:130px">Task Type</th>
-            <th style="width:140px">Điều kiện (Nếu có)</th>
+            <th style="width:140px">Condition (if any)</th>
             <th style="width:110px">Gateway Type</th>
             <th style="width:40px"></th>
           </tr>
@@ -339,13 +356,13 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path d="M8.5 10.5 5 7l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        Quay lại
+        Back
       </button>
       <button class="btn btn-primary-solid" id="btn-generate">
         <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
           <path d="M2 7.5h11M9 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span id="gen-text">Tạo Sơ đồ BPMN</span>
+        <span id="gen-text">Tạo BPMN Diagram</span>
         <svg class="spinner hidden" id="gen-spinner" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="60" stroke-dashoffset="40"/>
         </svg>
@@ -362,9 +379,9 @@ Khách hàng nhận hàng và xác nhận."></textarea>
     <div class="review-banner review-banner--diagram">
       <div>
         <span class="form-card-kicker">Step 3</span>
-        <h3>Kiểm tra sơ đồ BPMN cuối cùng</h3>
+        <h3>Review final BPMN Diagram</h3>
       </div>
-      <p>Tại đây bạn xem lane, sequence flow, event và chỉnh thêm trước khi validate hoặc export.</p>
+      <p>Here you can review lanes, sequence flows, events and edit further before validating or exporting.</p>
     </div>
 
     <!-- Toolbar -->
@@ -527,7 +544,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           </div>
           <div class="assistant-footer">
             <div class="assistant-input-wrap">
-              <textarea id="assistant-input" placeholder="e.g. 'Thêm bước phê duyệt sau bước 2' hoặc 'Đổi tên task 3 thành Xác nhận đơn hàng'" rows="1"></textarea>
+              <textarea id="assistant-input" placeholder="e.g. 'Add Step phê duyệt sau bước 2' hoặc 'Đổi tên task 3 thành Xác nhận đơn hàng'" rows="1"></textarea>
               <button class="btn-send-message" id="btn-send-assistant">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2L15 22L11 13L2 9L2Z"/></svg>
               </button>
@@ -721,13 +738,13 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M8.5 10.5 5 7l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          Sửa Logic
+          Edit Logic
         </button>
         <button class="btn btn-ghost btn-sm" id="btn-start-over">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M11 3a6 6 0 1 0 1.5 4M11 3V1M11 3H9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Làm lại
+          Start Over
         </button>
       </div>
       <div class="footer-right">
@@ -755,7 +772,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
             <path d="M2 13h11M7.5 2v8M5 7.5l2.5 2.5 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Tải .bpmn
+          Download .bpmn
         </button>
       </div>
     </div>
@@ -786,14 +803,14 @@ Khách hàng nhận hàng và xác nhận."></textarea>
     </button>
   </div>
   <div class="catalog-search">
-    <input class="catalog-search-input" id="catalog-search" type="text" placeholder="🔍 Tìm kiếm quy trình..." />
+    <input class="catalog-search-input" id="catalog-search" type="text" placeholder="🔍 Search processes..." />
   </div>
   <div class="catalog-list" id="catalog-list">
-    <div class="catalog-empty">Chưa có quy trình nào được lưu.<br/>Tạo sơ đồ và nhấn <strong>Lưu</strong> để thêm vào catalog.</div>
+    <div class="catalog-empty">No saved processes yet.<br/>Create a diagram and click <strong>Lưu</strong> to add to catalog.</div>
   </div>
   <div class="catalog-footer">
-    <button class="btn btn-ghost btn-sm" id="btn-catalog-clear">Xóa tất cả</button>
-    <span class="catalog-count" id="catalog-count">0 quy trình</span>
+    <button class="btn btn-ghost btn-sm" id="btn-catalog-clear">Clear all</button>
+    <span class="catalog-count" id="catalog-count">0 processes</span>
   </div>
 </aside>
 
@@ -814,42 +831,147 @@ Khách hàng nhận hàng và xác nhận."></textarea>
 <script src="bpmn-engine.js"></script>
 <script src="designer.js"></script>
 
+<!-- ── FORMAT GUIDE MODAL ─────────────────────────────────────── -->
+<div class="format-guide-overlay hidden" id="format-guide-overlay"></div>
+<div class="format-guide-modal hidden" id="format-guide-modal">
+  <div class="fgm-header">
+    <div class="fgm-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Định dạng chuẩn để Paste vào hệ thống
+    </div>
+    <button class="btn-icon" id="btn-close-format-guide" style="width:24px;height:24px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="fgm-body">
+    <div class="fgm-section">
+      <div class="fgm-section-title">📌 Quy tắc định dạng</div>
+      <div class="fgm-rules">
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>1. Khách hàng: Đặt hàng trên website</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>2. Hệ thống: Kiểm tra đơn hàng tự động</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>3. Nếu đơn hàng hợp lệ: Nhân viên kho: Đóng gói</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>4. Nếu hết hàng: Hệ thống: Gửi email hủy đơn</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--warn">⚠ Tránh</span>
+          <code>Sau đó, khách hàng sẽ xác nhận đơn hàng...</code>
+          <span class="fgm-rule-note">Câu dài, không có số thứ tự</span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--warn">⚠ Tránh</span>
+          <code>Nếu hàng hết: gửi thông báo cho khách</code>
+          <span class="fgm-rule-note">Thiếu actor sau dấu ":"</span>
+        </div>
+      </div>
+    </div>
+    <div class="fgm-section">
+      <div class="fgm-section-title">🔤 Danh sách Actor được nhận diện</div>
+      <div class="fgm-actor-grid">
+        <span class="fgm-actor-chip">Khách hàng</span>
+        <span class="fgm-actor-chip">Hệ thống</span>
+        <span class="fgm-actor-chip">Quản lý</span>
+        <span class="fgm-actor-chip">Nhân viên</span>
+        <span class="fgm-actor-chip">Nhân viên kho</span>
+        <span class="fgm-actor-chip">Kế toán</span>
+        <span class="fgm-actor-chip">HR</span>
+        <span class="fgm-actor-chip">Giám đốc</span>
+        <span class="fgm-actor-chip">Shipper</span>
+        <span class="fgm-actor-chip">Dược sĩ</span>
+        <span class="fgm-actor-chip">Bác sĩ</span>
+        <span class="fgm-actor-chip">Ngân hàng</span>
+        <span class="fgm-actor-chip">Nhà cung cấp</span>
+        <span class="fgm-actor-chip">Bộ phận tiếp nhận</span>
+        <span class="fgm-actor-chip fgm-actor-chip--hint">+ Bất kỳ vai trò nào khác</span>
+      </div>
+    </div>
+    <div class="fgm-section">
+      <div class="fgm-section-title">🔁 Điều kiện (Gateway)</div>
+      <p class="fgm-desc">Bắt đầu dòng bằng <strong>"Nếu [điều kiện]:"</strong> — hệ thống sẽ tự tạo Exclusive Gateway.</p>
+      <div class="fgm-example-block">
+        <div class="fgm-example-line"><span class="fgm-lnum">3.</span> Nếu số ngày &gt; 3: HR: Xem xét và phê duyệt thêm</div>
+        <div class="fgm-example-line fgm-example-line--branch"><span class="fgm-lnum">4.</span> Nếu không đủ ngày phép: Hệ thống: Gửi thông báo từ chối</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+  /* ── FORMAT GUIDE MODAL ── */
+  document.getElementById('btn-close-format-guide')?.addEventListener('click', function() {
+    document.getElementById('format-guide-modal').classList.add('hidden');
+    document.getElementById('format-guide-overlay').classList.add('hidden');
+  });
+  document.getElementById('format-guide-overlay')?.addEventListener('click', function() {
+    document.getElementById('format-guide-modal').classList.add('hidden');
+    document.getElementById('format-guide-overlay').classList.add('hidden');
+  });
+  function openFormatGuide() {
+    document.getElementById('format-guide-modal').classList.remove('hidden');
+    document.getElementById('format-guide-overlay').classList.remove('hidden');
+  }
+
+  /* ── COPY AI PROMPT ── */
   document.getElementById('btn-copy-ai-prompt')?.addEventListener('click', function() {
-    const promptText = `Bạn là một chuyên gia phân tích quy trình nghiệp vụ (BPMN).
-Tôi có một mô tả quy trình như sau: 
+    const processDesc = document.getElementById('process-desc')?.value?.trim() || '';
+    const hasDesc = processDesc.length > 10;
+    
+    const promptText = `Bạn là một Business Analyst chuyên về BPMN 2.0.
+${hasDesc
+  ? `Tôi có nghiệp vụ sau đây:\n\n"${processDesc}"\n\nHãy chuẩn hóa lại thành các bước BPMN.`
+  : `Tôi sẽ mô tả một nghiệp vụ. Hãy chuẩn hóa thành các bước BPMN.\n\n"[DÁN MÔ TẢ NGHIỆP VỤ CỦA BẠN VÀO ĐÂY]"`
+}
 
-"[Dán mô tả quy trình của bạn vào đây]"
+YÊU CẦU BẮT BUỘC — tuân thủ 100% định dạng sau, KHÔNG được thêm giải thích:
 
-Hãy phân tích và viết lại quy trình này thành các bước tuần tự để tôi có thể vẽ sơ đồ BPMN. 
-BẮT BUỘC tuân thủ nghiêm ngặt định dạng sau:
-1. Bắt đầu mỗi bước bằng số thứ tự.
-2. Ghi rõ [Vai trò]: [Hành động cụ thể]. 
-3. Nếu có rẽ nhánh điều kiện, hãy viết: "Nếu [Điều kiện]: [Vai trò]: [Hành động]".
-4. Chuẩn hóa vai trò thành các từ ngắn gọn (Ví dụ: Khách hàng, Hệ thống, Quản lý, Nhân viên, Kho, Kế toán...).
-5. Tuyệt đối không thêm giải thích, không dùng markdown (in đậm, in nghiêng), chỉ in ra danh sách các bước.
+ĐỊNH DẠNG CHUẨN:
+  Bước thường:    [Số]. [Vai trò]: [Hành động ngắn gọn]
+  Bước điều kiện: [Số]. Nếu [Điều kiện]: [Vai trò]: [Hành động]
 
-Ví dụ định dạng đầu ra mong muốn:
-1. Khách hàng: Tạo đơn hàng trên website
+QUY TẮC:
+1. Mỗi dòng là một bước duy nhất — không gộp nhiều hành động vào một dòng.
+2. Vai trò (Actor) phải ngắn gọn, tối đa 4 từ. Ví dụ: Khách hàng, Hệ thống, Quản lý, Nhân viên kho, Kế toán, HR, Giám đốc, Shipper.
+3. Điều kiện rẽ nhánh PHẢI bắt đầu bằng "Nếu" và có dấu ": Actor: Hành động" ngay sau.
+4. Không dùng markdown (không in đậm, không in nghiêng, không dùng ##).
+5. Không thêm chú thích, ghi chú, tiêu đề hay giải thích bên ngoài danh sách bước.
+
+VÍ DỤ ĐẦU RA ĐÚNG:
+1. Khách hàng: Đặt hàng trên website
 2. Hệ thống: Kiểm tra thông tin đơn hàng
 3. Nếu thông tin không hợp lệ: Hệ thống: Hiển thị lỗi và yêu cầu nhập lại
-4. Nếu thông tin hợp lệ: Hệ thống: Gửi email xác nhận
-5. Quản lý: Phê duyệt đơn hàng`;
+4. Nếu thông tin hợp lệ: Nhân viên kho: Kiểm tra tồn kho
+5. Nếu hết hàng: Hệ thống: Gửi email thông báo hủy đơn cho khách hàng
+6. Nếu còn hàng: Nhân viên kho: Đóng gói và bàn giao cho shipper
+7. Shipper: Giao hàng đến khách hàng
+8. Khách hàng: Xác nhận đã nhận hàng
+9. Hệ thống: Cập nhật trạng thái đơn hàng hoàn thành
+
+Bây giờ hãy xuất ra danh sách các bước theo đúng định dạng trên:`;
 
     navigator.clipboard.writeText(promptText).then(() => {
       const btn = this;
       const originalHtml = btn.innerHTML;
       btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5l-7 7-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Đã Copy!`;
-      btn.style.background = '#dcfce7';
-      btn.style.color = '#166534';
-      btn.style.borderColor = '#bbf7d0';
+      btn.style.background = 'rgba(16, 185, 129, 0.15)';
+      btn.style.color = '#059669';
+      btn.style.borderColor = 'rgba(16, 185, 129, 0.3)';
       
       setTimeout(() => {
         btn.innerHTML = originalHtml;
         btn.style.background = 'rgba(59, 130, 246, 0.1)';
         btn.style.color = '#3b82f6';
         btn.style.borderColor = 'rgba(59, 130, 246, 0.2)';
-      }, 2000);
+      }, 2500);
     }).catch(err => {
       console.error('Lỗi khi copy', err);
       alert('Trình duyệt của bạn không hỗ trợ copy tự động.');
@@ -857,5 +979,98 @@ Ví dụ định dạng đầu ra mong muốn:
   });
 </script>
 
+
+
+<script>
+/* ── LIVE PARSE PREVIEW (Step 1) ────────────────────────── */
+(function() {
+  let previewDebounce = null;
+
+  function getLivePreview(desc) {
+    if (!desc || desc.trim().length < 5) return [];
+    // Use the main parseFallback — wait until it's available
+    if (typeof parseFallback !== 'function') return [];
+    return parseFallback('preview', desc).slice(0, 8);
+  }
+
+  function actorClass(actor, isCond) {
+    if (isCond) return 'ppe-actor ppe-actor--cond';
+    if (/h[eệ]\s*th[oố]ng|system/i.test(actor)) return 'ppe-actor ppe-actor--sys';
+    return 'ppe-actor';
+  }
+
+  const TYPE_EMOJI = {
+    userTask: '👤', serviceTask: '⚙️', sendTask: '📤',
+    receiveTask: '📥', scriptTask: '📜', businessRuleTask: '📋',
+    manualTask: '🖐', task: '□'
+  };
+
+  function renderPreview(desc) {
+    const group  = document.getElementById('parse-preview-group');
+    const list   = document.getElementById('ppe-list');
+    const badge  = document.getElementById('ppe-badge');
+    if (!group || !list || !badge) return;
+
+    if (!desc || desc.trim().length < 5) {
+      group.style.display = 'none';
+      return;
+    }
+    group.style.display = '';
+
+    const steps = getLivePreview(desc);
+    if (steps.length === 0) {
+      list.innerHTML = '<div class="ppe-empty">Không thể phân tích. Hãy thêm định dạng "Actor: Hành động" vào mô tả.</div>';
+      badge.className = 'ppe-badge ppe-badge--warn';
+      badge.textContent = 'Not recognized yet';
+      return;
+    }
+
+    const hasCond    = steps.some(s => s.condition);
+    const uniqueActors = [...new Set(steps.map(s => s.actor))];
+    const goodFormat   = uniqueActors.length >= 2 && hasCond;
+
+    badge.className  = goodFormat ? 'ppe-badge ppe-badge--ok' : 'ppe-badge ppe-badge--warn';
+    badge.textContent = goodFormat
+      ? steps.length + ' bước · ' + uniqueActors.length + ' actor · có Gateway'
+      : steps.length + ' bước · ' + uniqueActors.length + ' actor';
+
+    list.innerHTML = steps.map((s, i) => {
+      const cls   = actorClass(s.actor, !!s.condition);
+      const emoji = TYPE_EMOJI[s.type] || '□';
+      const prefix = s.condition
+        ? '<span style="color:var(--warning);font-size:0.65rem;font-weight:700">GW→</span> '
+        : '';
+      return `<div class="ppe-row">
+        <span class="ppe-row-num">${i+1}</span>
+        <span class="${cls}">${escHtmlPreview(s.actor)}</span>
+        <span class="ppe-action">${prefix}${escHtmlPreview(s.action)}</span>
+        <span class="ppe-type">${emoji}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function escHtmlPreview(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  const descEl = document.getElementById('process-desc');
+  if (descEl) {
+    descEl.addEventListener('input', function() {
+      clearTimeout(previewDebounce);
+      previewDebounce = setTimeout(() => renderPreview(this.value), 350);
+    });
+  }
+
+  // Also re-render when example chips are clicked
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.chip')) {
+      setTimeout(() => {
+        const v = document.getElementById('process-desc')?.value || '';
+        renderPreview(v);
+      }, 80);
+    }
+  });
+})();
+</script>
 </body>
 </html>

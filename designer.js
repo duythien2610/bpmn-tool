@@ -6,50 +6,51 @@
 /* ─── EXAMPLES ────────────────────────────────────────────────── */
 const EXAMPLES = {
   purchase: {
-    title: 'Quy trình mua hàng online',
-    desc: `Khách hàng đặt hàng trên website.
-Nhân viên bán hàng nhận đơn hàng mới.
-Nhân viên bán hàng kiểm tra xem sản phẩm còn trong kho không.
-Nếu hết hàng: Gửi thông báo hủy đơn cho khách hàng.
-Nhân viên bán hàng đóng gói hàng hóa.
-Shipper nhận hàng và giao cho khách.
-Khách hàng xác nhận đã nhận được hàng.
-Hệ thống cập nhật trạng thái đơn hàng hoàn thành.`
+    title: 'Online Purchase Process',
+    desc: `1. Customer: Place order on website
+2. System: Validate order information automatically
+3. If order information is invalid: System: Display error and request re-entry
+4. If order information is valid: Warehouse Staff: Check inventory
+5. If out of stock: System: Send cancellation email to customer
+6. If in stock: Warehouse Staff: Pack and hand over to shipper
+7. Shipper: Deliver goods to customer
+8. Customer: Confirm receipt of goods
+9. System: Update order status to completed`
   },
   pharmacy: {
-    title: 'Quy trình cấp phát thuốc nhà thuốc',
-    desc: `Khách hàng đến nhà thuốc với đơn thuốc của bác sĩ.
-Dược sĩ nhận đơn và kiểm tra tính hợp lệ của đơn thuốc.
-Hệ thống kiểm tra tương tác thuốc tự động (DUR check).
-Nếu có cảnh báo: Dược sĩ xem xét và quyết định có override không.
-Kỹ thuật viên thực hiện cấp phát thuốc từ kho.
-Kỹ thuật viên dán nhãn và đóng gói thuốc.
-Dược sĩ kiểm tra chất lượng và xác nhận trước khi giao.
-Hệ thống tạo hóa đơn và cập nhật hồ sơ bệnh nhân.
-Khách hàng thanh toán và nhận thuốc.`
+    title: 'Pharmacy Dispensing Process',
+    desc: `1. Customer: Arrive at pharmacy with doctor prescription
+2. Pharmacist: Receive and validate prescription
+3. System: Perform automated drug interaction check (DUR)
+4. If warning detected: Pharmacist: Review and decide whether to override
+5. Technician: Dispense medication from storage
+6. Technician: Label and package medication
+7. Pharmacist: Perform quality check and confirm before handover
+8. System: Generate invoice and update patient records
+9. Customer: Pay and receive medication`
   },
   leave: {
-    title: 'Quy trình xin nghỉ phép nhân viên',
-    desc: `Nhân viên điền form xin nghỉ phép trên hệ thống HR.
-Hệ thống gửi thông báo tự động cho quản lý trực tiếp.
-Quản lý xem xét đơn xin nghỉ của nhân viên.
-Nếu số ngày lớn hơn 3: HR cần xem xét và phê duyệt thêm.
-HR kiểm tra số ngày phép còn lại trong năm của nhân viên.
-Nếu không đủ ngày phép: HR từ chối và thông báo cho nhân viên.
-Quản lý phê duyệt đơn xin nghỉ.
-Hệ thống cập nhật số ngày phép và gửi email xác nhận cho nhân viên.`
+    title: 'Employee Leave Request Process',
+    desc: `1. Employee: Submit leave request form on HR system
+2. System: Send automatic notification to direct manager
+3. Manager: Review employee leave request
+4. If leave duration exceeds 3 days: HR: Review and provide additional approval
+5. HR: Check remaining annual leave balance
+6. If insufficient leave balance: HR: Reject and notify employee
+7. Manager: Approve leave request
+8. System: Update leave balance and send confirmation email to employee`
   },
   invoice: {
-    title: 'Quy trình phê duyệt hóa đơn nhà cung cấp',
-    desc: `Kế toán nhận hóa đơn từ nhà cung cấp.
-Kế toán kiểm tra hóa đơn và đối chiếu với đơn đặt hàng gốc.
-Nếu có sai lệch: Liên hệ nhà cung cấp yêu cầu điều chỉnh.
-Kế toán gửi hóa đơn hợp lệ cho quản lý phê duyệt.
-Quản lý xem xét và phê duyệt hóa đơn.
-Nếu giá trị trên 50 triệu: Giám đốc cần ký duyệt thêm.
-Giám đốc phê duyệt hóa đơn giá trị lớn.
-Kế toán thực hiện thanh toán cho nhà cung cấp.
-Hệ thống ghi nhận thanh toán và lưu chứng từ kế toán.`
+    title: 'Supplier Invoice Approval Process',
+    desc: `1. Accountant: Receive invoice from supplier
+2. Accountant: Verify invoice against original purchase order
+3. If discrepancy found: Accountant: Contact supplier to request adjustment
+4. Accountant: Submit valid invoice to manager for approval
+5. Manager: Review and approve invoice
+6. If invoice value exceeds 50 million: Director: Provide additional authorization
+7. Director: Approve high-value invoice
+8. Accountant: Process payment to supplier
+9. System: Record payment and archive accounting documents`
   }
 };
 
@@ -1000,7 +1001,7 @@ function attachSelectionListener(modeler) {
   const eventBus = modeler.get('eventBus');
   eventBus.on('selection.changed', ({ newSelection }) => {
     if (newSelection.length === 1) {
-      openPropsPanel();
+      // Only populate data — do NOT auto-open the panel on click
       populatePropsPanel(newSelection[0]);
     } else {
       populatePropsPanel(null);
@@ -1012,6 +1013,7 @@ function attachSelectionListener(modeler) {
     }
   });
 }
+
 
 /* ─── AUTO LAYOUT ──────────────────────────────────────────────────── */
 document.getElementById('btn-auto-layout')?.addEventListener('click', async () => {
@@ -1118,65 +1120,185 @@ document.getElementById('btn-start-over').addEventListener('click', () => {
 });
 
 /* ─── FALLBACK PARSER (offline mode) ─────────────────────────── */
+/**
+ * parseFallback — Bộ parser local thông minh, KHÔNG cần AI/Gemini.
+ *
+ * Hỗ trợ định dạng AI chuẩn hoá (ChatGPT / Claude):
+ *   1. Actor: Hành động
+ *   2. Nếu [điều kiện]: Actor: Hành động
+ *   3. Nếu [điều kiện]: Hành động (actor tự suy luận)
+ *   4. Actor: Hành động (không số thứ tự)
+ *
+ * Logic ưu tiên:
+ *   A) Dòng bắt đầu "Nếu"/"If"/"Khi"/"When" → conditional branch
+ *   B) Pattern "Actor: Action" với actor ≤ 4 từ, không có dấu phẩy
+ *   C) Keyword-based actor inference
+ *   D) Inherit actor từ dòng trước
+ */
 function parseFallback(title, desc) {
-  const ACTORS = [
-    { re: /khách\s*hàng|customer|client|người\s*dùng|user/i, a: 'Khách hàng' },
-    { re: /nhân\s*viên\s*bán|sales|bán\s*hàng/i, a: 'Nhân viên bán hàng' },
-    { re: /\bnhân\s*viên\b|\bstaff\b|\bemployee\b/i, a: 'Nhân viên' },
-    { re: /dược\s*sĩ|pharmacist/i, a: 'Dược sĩ' },
-    { re: /kỹ\s*thuật\s*viên|technician/i, a: 'Kỹ thuật viên' },
-    { re: /hệ\s*thống|system|tự\s*động|auto/i, a: 'Hệ thống' },
-    { re: /quản\s*lý|manager|supervisor/i, a: 'Quản lý' },
-    { re: /hr|nhân\s*sự/i, a: 'HR' },
-    { re: /kế\s*toán|accountant/i, a: 'Kế toán' },
-    { re: /giám\s*đốc|director/i, a: 'Giám đốc' },
-    { re: /shipper|giao\s*hàng/i, a: 'Shipper' },
-    { re: /bác\s*sĩ|doctor/i, a: 'Bác sĩ' },
+
+  /* 1. ACTOR DICTIONARY */
+  const ACTOR_DICT = [
+    { re: /kh[aá]ch\s*h[aà]ng|customer|client|ng[uư][oờ]i\s*mua|buyer|user|ng[uư][oờ]i\s*d[uù]ng/i, a: 'Customer' },
+    { re: /nh[aâ]n\s*vi[eê]n\s*(b[aá]n|sales)|sales/i,                                a: 'Sales Staff' },
+    { re: /nh[aâ]n\s*vi[eê]n\s*(k[yỹ]\s*thu[aậ]t|it|cntt)|it\s*staff/i,               a: 'IT Staff' },
+    { re: /nh[aâ]n\s*vi[eê]n\s*(kho|l[uư]u\s*kho)|warehouse/i,                        a: 'Warehouse Staff' },
+    { re: /d[uư][oợ]c\s*s[iĩ]|pharmacist/i,                                           a: 'Pharmacist' },
+    { re: /k[yỹ]\s*thu[aậ]t\s*vi[eê]n|technician/i,                                   a: 'Technician' },
+    { re: /h[eệ]\s*th[oố]ng|system|t[uự]\s*[dđ][oộ]ng|automat|app/i,                  a: 'System' },
+    { re: /gi[aá]m\s*[dđ][oố]c|ceo|director|\bGD\b/i,                                 a: 'Director' },
+    { re: /ph[oó]\s*gi[aá]m\s*[dđ][oố]c|pgd|deputy/i,                                 a: 'Deputy Director' },
+    { re: /qu[aả]n\s*l[yý]|tr[uư][oở]ng\s*ph[oò]ng|manager|supervisor|lead/i,         a: 'Manager' },
+    { re: /b[oộ]\s*ph[aậ]n\s*ti[eế]p\s*nh[aậ]n|l[eễ]\s*t[aâ]n|receptionist/i,         a: 'Receptionist' },
+    { re: /b[oộ]\s*ph[aậ]n\s*x[uử]\s*l[yý]|processing/i,                              a: 'Processing Dept' },
+    { re: /b[oộ]\s*ph[aậ]n\s*ph[aá]p\s*l[yý]|legal/i,                                 a: 'Legal' },
+    { re: /hr|nh[aâ]n\s*s[uự]|human\s*resource/i,                                     a: 'HR' },
+    { re: /k[eế]\s*to[aá]n|accountant|finance/i,                                      a: 'Accountant' },
+    { re: /ki[eể]m\s*to[aá]n|auditor/i,                                               a: 'Auditor' },
+    { re: /shipper|[dđ][oơ]n\s*v[iị]\s*v[aậ]n\s*chuy[eể]n|courier|delivery/i,         a: 'Shipper' },
+    { re: /b[aá]c\s*s[iĩ]|doctor|physician/i,                                         a: 'Doctor' },
+    { re: /y\s*t[aá]|nurse/i,                                                         a: 'Nurse' },
+    { re: /nh[aà]\s*cung\s*c[aấ]p|supplier|vendor/i,                                  a: 'Supplier' },
+    { re: /ng[aâ]n\s*h[aà]ng|bank/i,                                                  a: 'Bank' },
+    { re: /\bnh[aâ]n\s*vi[eê]n\b|\bstaff\b|\bemployee\b|\bclerk\b/i,                  a: 'Staff' },
   ];
-  const INFER = [
-    { re: /đặt\s*hàng|nộp\s*đơn|thanh\s*toán|xác\s*nhận|nhận\s*hàng/i, a: 'Khách hàng' },
-    { re: /gửi\s*(email|thông\s*báo|sms)|cập\s*nhật|tạo\s*hóa\s*đơn|ghi\s*nhận|tự\s*động/i, a: 'Hệ thống' },
-    { re: /phê\s*duyệt|xem\s*xét|approve|review/i, a: 'Quản lý' },
-    { re: /kiểm\s*tra\s*kho|đóng\s*gói|xuất\s*kho/i, a: 'Kho' },
-    { re: /giao\s*hàng|deliver/i, a: 'Shipper' },
+
+  /* 2. KEYWORD → ACTOR INFERENCE */
+  const INFER_ACTOR = [
+    { re: /[dđ][aặ]t\s*h[aà]ng|n[oộ]p\s*[dđ][oơ]n|[dđ]i[eề]n\s*form|[dđ][aă]ng\s*k[yý]|y[eê]u\s*c[aầ]u|login/i, a: 'Customer' },
+    { re: /g[uử]i\s*(email|th[oô]ng\s*b[aá]o|sms)|c[aậ]p\s*nh[aậ]t|t[aạ]o.*t[uự]\s*[dđ][oộ]ng|ghi\s*nh[aậ]n/i,   a: 'System' },
+    { re: /ph[eê]\s*duy[eệ]t|k[yý]\s*duy[eệ]t|approve|review.*[dđ][oơ]n/i,                                            a: 'Manager' },
+    { re: /ki[eể]m\s*tra\s*kho|xu[aấ]t\s*kho|nh[aậ]p\s*kho|[dđ][oó]ng\s*g[oó]i/i,                                 a: 'Warehouse Staff' },
+    { re: /giao\s*h[aà]ng|v[aậ]n\s*chuy[eể]n|deliver|ship(?!per)/i,                                                    a: 'Shipper' },
+    { re: /thanh\s*to[aá]n|chi\s*ti[eề]n|tr[aả]\s*ti[eề]n|payment/i,                                                 a: 'Accountant' },
   ];
-  const lines = desc
-    .split(/\n+/)
-    .flatMap(l => l.split(/(?<=[\.\?!;])\s+|(?=Sau đó\b)|(?=Tiếp theo\b)|(?=Then\b)|(?=Next\b)/i))
+
+  /* 3. KEYWORD → TASK TYPE */
+  const TASK_TYPE_RULES = [
+    { re: /ph[eê]\s*duy[eệ]t|k[yý]\s*x[aá]c\s*nh[aậ]n|approve|review|xem\s*x[eé]t|ki[eể]m\s*tra|x[aá]c\s*nh[aậ]n|[dđ]i[eề]n\s*form|nh[aậ]p\s*li[eệ]u/i, t: 'userTask' },
+    { re: /h[eệ]\s*th[oố]ng|t[uự]\s*[dđ][oộ]ng|auto|g[uử]i\s*email|g[uử]i\s*sms|c[aậ]p\s*nh[aậ]t|generate|t[aạ]o.*t[uự]/i,                                   t: 'serviceTask' },
+    { re: /g[uử]i\s*(th[oô]ng\s*b[aá]o|email|sms|alert)|send\s*(notification|email|msg)/i,                                                                          t: 'sendTask' },
+    { re: /ti[eế]p\s*nh[aậ]n|nh[aậ]n\s*([dđ][oơ]n|h[aà]ng|h[oồ]\s*s[oơ]|th[oô]ng\s*b[aá]o|y[eê]u\s*c[aầ]u)|receive/i,                                      t: 'receiveTask' },
+    { re: /vi[eế]t\s*script|ch[aạ]y\s*script|t[ií]nh\s*to[aá]n.*t[uự]\s*[dđ][oộ]ng|process\s*data/i,                                                          t: 'scriptTask' },
+    { re: /quy\s*t[aắ]c\s*nghi[eệ]p\s*v[uụ]|business\s*rule|dmn/i,                                                                                               t: 'businessRuleTask' },
+    { re: /th[uủ]\s*c[oô]ng|k[yý]\s*tay|[dđ][oó]ng\s*d[aấ]u|manual/i,                                                                                            t: 'manualTask' },
+  ];
+
+  /* 4. SPLIT INTO LINES */
+  const rawLines = desc
+    .split(/\n/)
     .map(l => l.trim())
-    .filter(l => l.length > 4);
-  let lastActor = 'Người dùng', n = 1;
+    .filter(l => l.length > 2);
+
+  /* 5. PARSE EACH LINE */
+  let lastActor = 'Người dùng';
+  let n = 1;
   const steps = [];
-  for (const line of lines) {
-    const clean = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-–•]\s*/, '').trim();
-    if (!clean) continue;
-    let actor = null;
-    for (const { re, a } of ACTORS) { if (re.test(clean)) { actor = a; break; } }
+
+  for (const rawLine of rawLines) {
+    // Strip leading numbering: "1.", "1)", "- ", "• "
+    const line = rawLine
+      .replace(/^\d+[\.]\s*/, '')
+      .replace(/^\d+[\)]\s*/, '')
+      .replace(/^[-–•*]\s*/, '')
+      .trim();
+    if (!line || line.length < 3) continue;
+
+    /* 5A. DETECT CONDITIONAL PREFIX & GATEWAY TYPE */
+    const condPrefixRe = /^(n[eế]u|if|khi|when|tr[uư][oờ]ng\s*h[oợ]p|trong\s*tr[uư][oờ]ng\s*h[oợ]p)\b/i;
+    const isCond = condPrefixRe.test(line);
+
+    const parallelPrefixRe = /^([dđ][oồ]ng\s*th[oờ]i|song\s*song|parallel|and)\b/i;
+    const isParallel = parallelPrefixRe.test(line);
+
+    let condition = '';
+    let bodyText  = line;
+    let gatewayType = '';
+
+    if (isCond || isParallel) {
+      const activeRe = isCond ? condPrefixRe : parallelPrefixRe;
+      gatewayType = isParallel ? 'parallelGateway' : 'exclusiveGateway';
+      // Find the FIRST colon that separates condition from action body
+      const colonIdx = line.search(/[:\uFF1A]/);
+      if (colonIdx !== -1) {
+        condition = line.substring(0, colonIdx).replace(activeRe, '').trim() || (isParallel ? 'parallel split' : '');
+        bodyText  = line.substring(colonIdx + 1).trim();
+      } else {
+        // No colon: entire line is condition label
+        condition = line.replace(activeRe, '').trim() || (isParallel ? 'parallel split' : '');
+        bodyText  = '';
+      }
+    }
+
+    /* 5B. SPLIT ACTOR : ACTION */
+    let actor  = null;
+    let action = bodyText;
+
+    if (bodyText) {
+      // Match "Actor: Action" where actor is short (<=4 words), no commas
+      const m = bodyText.match(/^([^,:\uFF1A\n]{2,40})[:\uFF1A](.*)/);
+      if (m) {
+        const cActor  = m[1].trim();
+        const cAction = m[2].trim();
+        const wordCount = cActor.split(/\s+/).length;
+        const notConj   = !/^(n[eế]u|if|khi|when|sau|ti[eế]p|tr[uư][oờ]c|[dđ][oồ]ng|song|v[aà]|ho[aặ]c)/i.test(cActor);
+        if (wordCount <= 4 && notConj && cAction.length > 0) {
+          actor  = cActor;
+          action = cAction;
+        }
+      }
+    }
+
+    /* 5C. KEYWORD-BASED ACTOR LOOKUP */
     if (!actor) {
-      for (const { re, a } of INFER) {
-        if (re.test(clean)) { actor = a; break; }
+      for (const { re, a } of ACTOR_DICT) {
+        if (re.test(bodyText || line)) { actor = a; break; }
+      }
+    }
+    if (!actor) {
+      for (const { re, a } of INFER_ACTOR) {
+        if (re.test(action || line)) { actor = a; break; }
       }
     }
     actor = actor || lastActor;
     lastActor = actor;
-    const isCond = /^(nếu|if|khi|when)\b/i.test(clean);
-    let condition = '', action = clean;
-    if (isCond) {
-      const parts = clean.split(/[:：]/);
-      if (parts.length > 1) { condition = parts[0].replace(/^(nếu|if|khi|when)\s*/i, '').trim(); action = parts.slice(1).join(':').trim(); }
-      else { condition = 'Điều kiện'; }
-    }
+
+    /* 5D. HANDLE EMPTY ACTION */
+    if (!action && condition) action = condition;
+    if (!action) continue;
+
+    /* 5E. INFER TASK TYPE */
     let type = 'task';
-    if (/phê\s*duyệt|approve|review|xem\s*xét/i.test(action)) type = 'userTask';
-    if (/hệ\s*thống|tự\s*động|auto|tạo|generate/i.test(action)) type = 'serviceTask';
-    if (/tiếp\s*nhận|nhận\s*đơn\s*mới|nhận\s*hàng|nhận\s*thông\s*báo|receive/i.test(action)) type = 'receiveTask';
-    if (/gửi\s*(email|thông|sms)|send/i.test(action)) type = 'sendTask';
-    steps.push({ step: n++, actor, action: action.substring(0, 100), condition: condition.substring(0, 80), type, gatewayType: condition ? 'exclusiveGateway' : '' });
+    for (const { re, t } of TASK_TYPE_RULES) {
+      if (re.test(action)) { type = t; break; }
+    }
+    // Upgrade generic task → serviceTask when actor = 'Hệ thống'
+    if (type === 'task' && /h[eệ]\s*th[oố]ng|system/i.test(actor)) {
+      type = 'serviceTask';
+    }
+
+    /* 5F. GATEWAY */
+    // Already resolved during step 5A
+
+
+    steps.push({
+      step:        n++,
+      actor:       actor.substring(0, 60),
+      action:      action.substring(0, 120),
+      condition:   condition.substring(0, 100),
+      type,
+      gatewayType,
+    });
   }
-  return steps.length > 0 ? steps : [
-    { step: 1, actor: 'Người dùng', action: title, condition: '', type: 'task' },
-    { step: 2, actor: 'Hệ thống', action: 'Xử lý yêu cầu', condition: '', type: 'serviceTask' },
-  ];
+
+  /* 6. FALLBACK: ensure at least 2 steps */
+  if (steps.length === 0) {
+    return [
+      { step: 1, actor: 'Người dùng', action: title || 'Bắt đầu quy trình', condition: '', type: 'userTask',    gatewayType: '' },
+      { step: 2, actor: 'Hệ thống',   action: 'Xử lý và ghi nhận kết quả',   condition: '', type: 'serviceTask', gatewayType: '' },
+    ];
+  }
+  return steps;
 }
 
 /* ─── HELPERS ─────────────────────────────────────────────────── */

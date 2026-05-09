@@ -1,293 +1,382 @@
-/**
- * BPMN Engine — Offline BPMN 2.0 XML Generator
- * Camunda-compliant: Collaboration/Pool, Swimlanes, correct Gateway flow,
- * standard element sizes (Task 100×80, Event 36×36, Gateway 50×50)
- * Version: 5.0
- */
-
+/** BPMN Engine v7.2 — Fix: merge node AFTER branches, cross-lane waypoints */
 const BpmnEngine = (() => {
-  /* ── ID GENERATOR ──────────────────────────────────────────── */
   let _n = 0;
-  const uid  = (p = 'id') => `${p}_${(++_n).toString(36)}${Math.random().toString(36).slice(2,5)}`;
-  const esc  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const uid = p => `${p}_${(++_n).toString(36)}${Math.random().toString(36).slice(2,5)}`;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const resetIds = () => { _n = 0; };
 
-  /* ── ELEMENT SIZES (BPMN 2.0 / Camunda standard) ─────────── */
-  const SIZE = {
-    task:             { w:100, h:80 },
-    userTask:         { w:100, h:80 },
-    serviceTask:      { w:100, h:80 },
-    sendTask:         { w:100, h:80 },
-    receiveTask:      { w:100, h:80 },
-    manualTask:       { w:100, h:80 },
-    scriptTask:       { w:100, h:80 },
-    businessRuleTask: { w:100, h:80 },
-    callActivity:     { w:100, h:80 },
-    startEvent:       { w:36,  h:36  },
-    endEvent:         { w:36,  h:36  },
-    exclusiveGateway: { w:50,  h:50  },
-    parallelGateway:  { w:50,  h:50  },
-    inclusiveGateway: { w:50,  h:50  },
+  const SZ = {
+    task:'100,80',userTask:'100,80',serviceTask:'100,80',sendTask:'100,80',
+    receiveTask:'100,80',manualTask:'100,80',scriptTask:'100,80',
+    businessRuleTask:'100,80',callActivity:'100,80',subProcess:'140,100',
+    startEvent:'36,36',endEvent:'36,36',
+    exclusiveGateway:'50,50',parallelGateway:'50,50',inclusiveGateway:'50,50',
   };
-  const sz = t => SIZE[t] || { w:100, h:80 };
+  const sz = t => { const v=SZ[t]||'100,80'; const [w,h]=v.split(',').map(Number); return {w,h}; };
 
-  /* ── LAYOUT CONSTANTS ─────────────────────────────────────── */
-  const POOL_X        = 160;   // Pool left edge x
-  const POOL_LABEL_W  = 30;    // Pool label strip
-  const LANE_LABEL_W  = 30;    // Lane label strip
-  const LANE_H        = 140;   // Per-lane height
-  const CONTENT_X0    = POOL_X + POOL_LABEL_W + LANE_LABEL_W + 50; // First element X
-  const H_GAP         = 120;   // Gap between elements
-  const POOL_TOP_Y    = 60;    // Pool top y
+  // Layout constants
+  const POOL_X=100, POOL_LBL=30, LANE_LBL=30;
+  const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=55, REJ_DROP=40;
 
-  /* ── TASK TYPE RESOLVER ───────────────────────────────────── */
-  const TYPE_MAP = {
-    task:'task', usertask:'userTask', servicetask:'serviceTask',
-    manualtask:'manualTask', sendtask:'sendTask', receivetask:'receiveTask',
-    scripttask:'scriptTask', businessruletask:'businessRuleTask',
-    callactivity:'callActivity',
-    user:'userTask', service:'serviceTask', send:'sendTask',
-    manual:'manualTask', receive:'receiveTask', script:'scriptTask',
-    rule:'businessRuleTask', call:'callActivity',
-    intermediatecatchevent: 'intermediateCatchEvent', intermediatethrowevent: 'intermediateThrowEvent',
-    subprocess: 'subProcess'
-  };
-  const resolveType = t => TYPE_MAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
+  const TMAP={task:'task',usertask:'userTask',servicetask:'serviceTask',sendtask:'sendTask',
+    receivetask:'receiveTask',manualtask:'manualTask',scripttask:'scriptTask',
+    businessruletask:'businessRuleTask',callactivity:'callActivity',subprocess:'subProcess',
+    user:'userTask',service:'serviceTask',send:'sendTask',manual:'manualTask',
+    receive:'receiveTask',script:'scriptTask',rule:'businessRuleTask',call:'callActivity'};
+  const rtype = t => TMAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
 
-  /* ── BUILD FLOW MODEL ─────────────────────────────────────── */
-  /**
-   * Converts steps[] → { nodes[], flows[] }
-   * Gateway rule: XOR gateway is inserted BEFORE the step that has a condition.
-   * Branch "Yes" → the step itself; Branch "No" → a separate EndEvent (Reject).
-   */
+  function xorLabel(conds) {
+    const neg=/\b(kh[oô]ng|ch[uư]a|not|invalid)\b/gi;
+    const cl=conds.map(c=>c.replace(neg,'').replace(/\s+/g,' ').trim());
+    const ws=cl[0].toLowerCase().split(/\s+/).filter(w=>w.length>2&&cl.every(c=>c.toLowerCase().includes(w)));
+    return ws.length?ws.join(' '):(cl[0]||'Decision');
+  }
+
+  /* ─────────────────────────────────────────
+     buildFlow — KEY FIX: merge pushed AFTER branches
+     ───────────────────────────────────────── */
   function buildFlow(steps, actors) {
-    const nodes = [], flows = [];
-    const firstActor = actors[0] || 'System';
+    const nodes=[], flows=[];
+    const first=actors[0]||'System';
+    const sid=uid('SE');
+    nodes.push({id:sid,type:'startEvent',name:'Start',actor:first});
+    let prev=sid, openGw=null;
 
-    // Start event
-    const startId = uid('Start');
-    nodes.push({ id: startId, type: 'startEvent', name: 'Bắt đầu', actor: firstActor });
+    for (let i=0;i<steps.length;i++) {
+      const s=steps[i];
+      const actor=(s.actor||'').trim()||first;
+      const action=(s.action||'Step '+(i+1)).substring(0,80);
+      const cond=(s.condition||'').trim();
+      const rgt=(s.gatewayType||'').toLowerCase().replace(/[-_ ]/g,'');
+      const gwT=rgt==='parallelgateway'?'parallelGateway'
+               :rgt==='inclusivegateway'?'inclusiveGateway'
+               :(rgt==='exclusivegateway'||cond)?'exclusiveGateway':null;
+      const type=rtype(s.type);
+      const tid=uid('T');
 
-    let prevId  = startId;
-    let openGw  = null; // { gwId, yesFlowId } — waiting for next task to close Yes branch
-
-    steps.forEach((step, idx) => {
-      const actor   = (step.actor||'').trim() || firstActor;
-      const action  = (step.action || `Bước ${idx+1}`).substring(0, 80);
-      const cond    = (step.condition||'').trim();
-      const gwType  = step.gatewayType || (cond ? 'exclusiveGateway' : null);
-      const type    = resolveType(step.type || 'task');
-      const taskId  = uid('Task');
-
-      // If previous step had an open XOR gateway, connect its Yes-branch to this task
-      if (openGw) {
-        flows.push({ id: openGw.yesFlowId, from: openGw.gwId, to: taskId, name: 'Có', condition: 'Có' });
-        openGw = null;
+      if (openGw&&gwT!=='parallelGateway') {
+        flows.push({id:openGw.yid,from:openGw.gid,to:tid,name:'Yes',condition:'Yes'});
+        openGw=null;
       }
 
-      nodes.push({ id: taskId, type, name: action, actor });
+      nodes.push({id:tid,type,name:action,actor});
+      flows.push({id:uid('F'),from:prev,to:tid});
 
-      // Flow from previous node to this task
-      flows.push({ id: uid('Flow'), from: prevId, to: taskId });
+      /* AND */
+      if (gwT==='parallelGateway') {
+        const spid=uid('GW'), jnid=uid('GW');
+        nodes.push({id:spid,type:'parallelGateway',name:'',actor});
+        flows.push({id:uid('F'),from:tid,to:spid});
+        const bst=[]; let j=i+1;
+        while(j<steps.length){
+          const nx=steps[j],ng=(nx.gatewayType||'').toLowerCase().replace(/[-_ ]/g,'');
+          if(ng==='parallelgateway'&&nx.actor&&nx.action){bst.push(nx);j++;}else break;
+        }
+        if(!bst.length){
+          flows.push({id:uid('F'),from:spid,to:jnid});
+          flows.push({id:uid('F'),from:spid,to:jnid});
+        } else {
+          bst.forEach(b=>{
+            const ba=(b.actor||'').trim()||actor,bid=uid('T');
+            nodes.push({id:bid,type:rtype(b.type),name:b.action.substring(0,80),actor:ba,isBranch:true,gwGroup:jnid});
+            flows.push({id:uid('F'),from:spid,to:bid});
+            flows.push({id:uid('F'),from:bid,to:jnid});
+          });
+          i=j-1;
+        }
+        // push join AFTER branches
+        nodes.push({id:jnid,type:'parallelGateway',name:'',actor,isJoin:true});
+        prev=jnid;
 
-      if (gwType && cond) {
-        // Insert XOR gateway AFTER this task → branch for next steps
-        const gwId       = uid('GW');
-        const gwQuestion = cond.endsWith('?') ? cond : cond + '?';
-        nodes.push({ id: gwId, type: gwType, name: gwQuestion, actor });
+      /* XOR multi-branch */
+      } else if (gwT==='exclusiveGateway'&&cond) {
+        const grp=[{actor,action,type,cond,tid}];
+        let j=i+1;
+        while(j<steps.length){
+          const nx=steps[j],ng=(nx.gatewayType||'').toLowerCase().replace(/[-_ ]/g,''),nc=(nx.condition||'').trim();
+          if(nc&&nx.action&&(ng==='exclusivegateway'||!ng)){
+            grp.push({actor:(nx.actor||'').trim()||first,action:nx.action.substring(0,80),type:rtype(nx.type),cond:nc,tid:uid('T')});
+            j++;
+          } else break;
+        }
 
-        // Task → Gateway
-        flows.push({ id: uid('Flow'), from: taskId, to: gwId });
+        if(grp.length>=2) {
+          nodes.pop(); flows.pop(); // remove pre-created task+flow
+          const gwid=uid('GW'), mid=uid('GW');
+          const gwlbl=xorLabel(grp.map(b=>b.cond))+'?';
+          nodes.push({id:gwid,type:'exclusiveGateway',name:gwlbl,actor:grp[0].actor});
+          flows.push({id:uid('F'),from:prev,to:gwid});
+          const defFid=uid('F');
+          // Push branch tasks first
+          grp.forEach((b,bi)=>{
+            nodes.push({id:b.tid,type:b.type,name:b.action,actor:b.actor,isBranch:true,gwGroup:mid});
+            const fid=bi===0?defFid:uid('F');
+            flows.push({id:fid,from:gwid,to:b.tid,name:b.cond,condition:b.cond,isDefault:bi===0});
+            flows.push({id:uid('F'),from:b.tid,to:mid});
+          });
+          // Push merge AFTER all branches
+          nodes.push({id:mid,type:'exclusiveGateway',name:'',actor:grp[0].actor,isJoin:true});
+          nodes.find(n=>n.id===gwid)._defFid=defFid;
+          prev=mid; i=j-1;
 
-        // "No" branch → reject end event
-        const noEndId = uid('End');
-        nodes.push({ id: noEndId, type: 'endEvent', name: 'Kết thúc (từ chối)', actor, branchType: 'reject', gatewayRef: gwId });
-        flows.push({ id: uid('Flow'), from: gwId, to: noEndId, name: 'Không', condition: 'Không' });
+        } else {
+          // Single cond → yes/no + reject end
+          const gwid=uid('GW');
+          nodes.push({id:gwid,type:'exclusiveGateway',name:cond.endsWith('?')?cond:cond+'?',actor});
+          flows.push({id:uid('F'),from:tid,to:gwid});
+          const neid=uid('EE'),nfid=uid('F');
+          nodes.push({id:neid,type:'endEvent',name:'End (Rejected)',actor,isReject:true,gwRef:gwid});
+          flows.push({id:nfid,from:gwid,to:neid,name:'No',condition:'No',isDefault:false});
+          const yid=uid('F');
+          openGw={gid:gwid,yid,defFid:nfid};
+          prev=gwid;
+        }
 
-        // "Yes" branch → will be connected when next step is processed
-        const yesFlowId = uid('Flow');
-        openGw  = { gwId, yesFlowId };
-        prevId  = gwId; // next task will connect from gateway via openGw
+      /* OR */
+      } else if (gwT==='inclusiveGateway'&&cond) {
+        const gwid=uid('GW');
+        nodes.push({id:gwid,type:'inclusiveGateway',name:cond+'?',actor});
+        flows.push({id:uid('F'),from:tid,to:gwid});
+        const neid=uid('EE'),nfid=uid('F');
+        nodes.push({id:neid,type:'endEvent',name:'End (Skipped)',actor,isReject:true,gwRef:gwid});
+        flows.push({id:nfid,from:gwid,to:neid,name:'No',condition:'No'});
+        const yid=uid('F');
+        openGw={gid:gwid,yid,defFid:nfid};
+        prev=gwid;
       } else {
-        prevId = taskId;
+        prev=tid;
       }
-    });
-
-    // Close any still-open gateway Yes branch with the main End event
-    const lastActor = steps.length > 0 ? ((steps[steps.length-1].actor||'').trim() || firstActor) : firstActor;
-    const endId = uid('End');
-    nodes.push({ id: endId, type: 'endEvent', name: 'Kết thúc', actor: lastActor });
-
-    if (openGw) {
-      flows.push({ id: openGw.yesFlowId, from: openGw.gwId, to: endId, name: 'Có', condition: 'Có' });
-    } else {
-      flows.push({ id: uid('Flow'), from: prevId, to: endId });
     }
 
-    return { nodes, flows };
+    const la=steps.length?((steps[steps.length-1].actor||'').trim()||first):first;
+    const eid=uid('EE');
+    nodes.push({id:eid,type:'endEvent',name:'End',actor:la});
+    if(openGw) flows.push({id:openGw.yid,from:openGw.gid,to:eid,name:'Yes',condition:'Yes'});
+    else flows.push({id:uid('F'),from:prev,to:eid});
+    return {nodes,flows};
   }
 
-  /* ── ASSIGN POSITIONS ─────────────────────────────────────── */
-  function assignPositions(nodes, actors) {
-    const laneYMap = {};
-    actors.forEach((a, i) => { laneYMap[a] = POOL_TOP_Y + i * LANE_H; });
+  /* ─────────────────────────────────────────
+     assignPos — branches same col, join after
+     ───────────────────────────────────────── */
+  function assignPos(nodes, actors, solo) {
+    const lH=solo?LANE_SOLO:LANE_H;
+    const lt={};
+    actors.forEach((a,i)=>{lt[a]=TOP_Y+i*lH;});
+    const x0=POOL_X+POOL_LBL+(solo?0:LANE_LBL)+GAP;
+    let cx=x0, brMaxX=0;
+    const pos={};
 
-    // Column slot: assign X left→right in order of nodes array
-    let curX = CONTENT_X0;
-    const posMap = {};
+    nodes.forEach(n=>{
+      const {w,h}=sz(n.type);
+      const lTop=lt[n.actor]??TOP_Y;
+      const lMid=lTop+lH/2;
+      const lBot=lTop+lH;
 
-    nodes.forEach(n => {
-      const { w, h } = sz(n.type);
-      const laneY  = laneYMap[n.actor] || POOL_TOP_Y;
-      let cx       = curX + w / 2;
-      let cy       = laneY + LANE_H / 2;
-
-      if (n.branchType === 'reject' && n.gatewayRef && posMap[n.gatewayRef]) {
-        cx = posMap[n.gatewayRef].cx;
-        cy = laneY + LANE_H - h / 2 - 18;
+      if(n.isReject&&n.gwRef&&pos[n.gwRef]) {
+        // Place reject end BELOW its gateway
+        const gp=pos[n.gwRef];
+        const ex=gp.cx, ey=lBot+REJ_DROP+h/2;
+        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:ex,cy:Math.round(ey)};
+      } else if(n.isBranch) {
+        // All branches share same X column (curX unchanged)
+        const ex=cx+w/2, ey=lMid;
+        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
+        brMaxX=Math.max(brMaxX,Math.round(ex-w/2)+w);
+      } else if(n.isJoin) {
+        // Place join AFTER all branches
+        const jx=Math.max(cx,brMaxX+GAP);
+        const ex=jx+w/2, ey=lMid;
+        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
+        cx=Math.round(ex)+Math.round(w/2)+GAP;
+        brMaxX=0;
       } else {
-        curX += w + H_GAP;
+        const ex=cx+w/2, ey=lMid;
+        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
+        cx+=w+GAP;
       }
-
-      posMap[n.id] = { x: Math.round(cx - w/2), y: Math.round(cy - h/2), w, h, cx, cy, actor: n.actor };
     });
 
-    return { posMap, laneYMap, totalW: curX - POOL_X + 20 };
+    const allP=Object.values(pos);
+    const maxR=allP.length?Math.max(...allP.map(p=>p.x+p.w)):x0+200;
+    const totalW=maxR-POOL_X+70;
+    const hasReject=nodes.some(n=>n.isReject);
+    const totalH=actors.length*lH+(hasReject?REJ_DROP+60:0);
+    return {pos,lt,lH,totalW,totalH};
   }
 
-  /* ── BUILD XML ────────────────────────────────────────────── */
-  function generate(processTitle, steps) {
+  function connMap(nodes,flows) {
+    const inc={},out={};
+    nodes.forEach(n=>{inc[n.id]=[];out[n.id]=[];});
+    flows.forEach(f=>{out[f.from]&&out[f.from].push(f.id);inc[f.to]&&inc[f.to].push(f.id);});
+    return {inc,out};
+  }
+
+  /* ─────────────────────────────────────────
+     Waypoint routing — proper cross-lane BPMN
+     Rules (Camunda Modeler style):
+       • Same lane → straight horizontal
+       • Gateway → lower lane task: exit BOTTOM of GW → down → left of task
+       • Gateway → upper lane task: exit TOP of GW → up → left of task
+       • Lower branch → upper merge: exit RIGHT of task → right to merge cx → up to merge cy → left
+       • Reject end: exit BOTTOM of gateway → down → top of reject event
+     ───────────────────────────────────────── */
+  function waypoints(sp, tp, sn, tn) {
+    const srcIsGW = sn && sn.type && sn.type.includes('Gateway');
+    const tgtIsGW = tn && tn.type && tn.type.includes('Gateway');
+
+    // ── Reject end: go straight DOWN from gateway bottom ──
+    if (tn && tn.isReject) {
+      const gcx = sp.cx, gbot = sp.y + sp.h;
+      const tcx = tp.cx, ttop = tp.y;
+      return [[gcx, gbot], [gcx, ttop], [tcx, ttop], [tcx, tp.cy]];
+    }
+
+    const sy = sp.cy, ty = tp.cy;
+    const diff = ty - sy;
+
+    // ── Same lane (within 5px) → straight ──
+    if (Math.abs(diff) <= 5) {
+      return [[sp.x + sp.w, sy], [tp.x, ty]];
+    }
+
+    // ── Gateway → task in different lane ──
+    if (srcIsGW) {
+      if (diff > 0) {
+        // Going DOWN: exit BOTTOM of gateway → drop to target cy → enter LEFT
+        const gbot = sp.y + sp.h, gcx = sp.cx;
+        return [[gcx, gbot], [gcx, ty], [tp.x, ty]];
+      } else {
+        // Going UP: exit TOP of gateway → rise to target cy → enter LEFT
+        const gtop = sp.y, gcx = sp.cx;
+        return [[gcx, gtop], [gcx, ty], [tp.x, ty]];
+      }
+    }
+
+    // ── Task in lower lane → XOR merge in upper lane ──
+    if (tgtIsGW && diff < 0) {
+      // Exit RIGHT of task → go right to merge cx → rise to merge cy → enter LEFT
+      const mcx  = tp.cx;
+      const mbot = tp.y + tp.h;
+      return [[sp.x + sp.w, sy], [mcx, sy], [mcx, mbot], [mcx, ty]];
+    }
+
+    // ── Task in upper lane → XOR merge in lower lane ──
+    if (tgtIsGW && diff > 0) {
+      const mcx  = tp.cx;
+      const mtop = tp.y;
+      return [[sp.x + sp.w, sy], [mcx, sy], [mcx, mtop], [mcx, ty]];
+    }
+
+    // ── Default cross-lane: right → midX → drop → left ──
+    const midX = Math.round((sp.x + sp.w + tp.x) / 2);
+    return [[sp.x + sp.w, sy], [midX, sy], [midX, ty], [tp.x, ty]];
+  }
+
+
+  /* ─────────────────────────────────────────
+     generate — main entry point
+     ───────────────────────────────────────── */
+  function generate(title, steps) {
     resetIds();
+    if(!steps||!steps.length) steps=[
+      {step:1,actor:'Customer',action:'Submit request',condition:'',type:'userTask',gatewayType:''},
+      {step:2,actor:'System',  action:'Process request',condition:'',type:'serviceTask',gatewayType:''},
+    ];
+    const actSeen=[];
+    steps.forEach(s=>{const a=(s.actor||'').trim()||'System';if(!actSeen.includes(a))actSeen.push(a);});
+    const actors=actSeen.length?actSeen:['User'];
+    const solo=actors.length===1;
+    const T=esc(title||'Process');
+    const pid=uid('Proc'),cid=uid('Col'),ptid=uid('Part'),lsid=uid('LS');
+    const lids={};
+    if(!solo)actors.forEach(a=>{lids[a]=uid('Lane');});
 
-    // Collect unique actors in order
-    const actorsSeen = [];
-    steps.forEach(s => {
-      const a = (s.actor||'').trim() || 'Hệ thống';
-      if (!actorsSeen.includes(a)) actorsSeen.push(a);
+    const {nodes,flows}=buildFlow(steps,actors);
+    const {pos,lt,lH,totalW,totalH}=assignPos(nodes,actors,solo);
+    const {inc,out}=connMap(nodes,flows);
+
+    // XOR default flow map
+    const xdef={};
+    nodes.forEach(n=>{if(n._defFid)xdef[n.id]=n._defFid;});
+    flows.forEach(f=>{
+      if(f.name==='Yes'&&f.condition==='Yes'){
+        const s=nodes.find(n=>n.id===f.from);
+        if(s&&s.type==='exclusiveGateway'&&!xdef[f.from])xdef[f.from]=f.id;
+      }
     });
-    const actors = actorsSeen.length > 0 ? actorsSeen : ['Người dùng'];
 
-    const safeTitle   = esc(processTitle || 'My Process');
-    const processId   = uid('Process');
-    const collabId    = uid('Collab');
-    const participantId = uid('Participant');
-    const laneSetId   = uid('LaneSet');
-    const laneIds     = {};
-    actors.forEach(a => { laneIds[a] = uid('Lane'); });
+    /* Lane XML */
+    const lxml=solo?'':actors.map(a=>{
+      const refs=nodes.filter(n=>n.actor===a).map(n=>`        <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
+      return `      <bpmn:lane id="${lids[a]}" name="${esc(a)}">\n${refs}\n      </bpmn:lane>`;
+    }).join('\n');
+    const lsxml=solo?'':
+      `    <bpmn:laneSet id="${lsid}">\n${lxml}\n    </bpmn:laneSet>\n`;
 
-    const { nodes, flows } = buildFlow(steps, actors);
-    const { posMap, laneYMap, totalW } = assignPositions(nodes, actors);
-    const totalH = actors.length * LANE_H;
-
-    /* ── Semantic XML ──────────────────────────────────────── */
-    // LaneSet
-    const laneXml = actors.map(actor => {
-      const laneId = laneIds[actor];
-      const refs   = nodes.filter(n => n.actor === actor)
-        .map(n => `        <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
-      return `      <bpmn:lane id="${laneId}" name="${esc(actor)}">\n${refs}\n      </bpmn:lane>`;
+    /* Nodes semantic */
+    const nxml=nodes.map(n=>{
+      const nm=n.name?` name="${esc(n.name)}"`:'';
+      const ins=(inc[n.id]||[]).map(id=>`      <bpmn:incoming>${id}</bpmn:incoming>`).join('\n');
+      const ots=(out[n.id]||[]).map(id=>`      <bpmn:outgoing>${id}</bpmn:outgoing>`).join('\n');
+      const body=[ins,ots].filter(Boolean).join('\n');
+      const w=(tag,a='')=>body?`    <bpmn:${tag} id="${n.id}"${nm}${a}>\n${body}\n    </bpmn:${tag}>`
+                               :`    <bpmn:${tag} id="${n.id}"${nm}${a} />`;
+      if(n.type==='startEvent') return w('startEvent');
+      if(n.type==='endEvent')   return w('endEvent');
+      if(n.type==='exclusiveGateway'){
+        const da=xdef[n.id]?` default="${xdef[n.id]}"`:' ';
+        return w('exclusiveGateway',` isMarkerVisible="true"${da}`);
+      }
+      if(n.type==='parallelGateway')  return w('parallelGateway');
+      if(n.type==='inclusiveGateway') return w('inclusiveGateway');
+      return w(n.type);
     }).join('\n');
 
-    // Nodes
-    const nodesXml = nodes.map(n => {
-      const name = n.name ? ` name="${esc(n.name)}"` : '';
-      if (n.type === 'startEvent')
-        return `    <bpmn:startEvent id="${n.id}"${name} />`;
-      if (n.type === 'endEvent')
-        return `    <bpmn:endEvent id="${n.id}"${name} />`;
-      if (n.type === 'exclusiveGateway')
-        return `    <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
-      if (n.type === 'parallelGateway')
-        return `    <bpmn:parallelGateway id="${n.id}"${name} />`;
-      if (n.type === 'inclusiveGateway')
-        return `    <bpmn:inclusiveGateway id="${n.id}"${name} />`;
-      if (n.type === 'eventBasedGateway')
-        return `    <bpmn:eventBasedGateway id="${n.id}"${name} />`;
-      if (n.type === 'intermediateCatchEvent' || n.type === 'intermediateThrowEvent') {
-        const evtDefMap = {
-          timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
-          message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
-          error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
-          signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
-          conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
-        };
-        const evtDef = evtDefMap[n.eventType] || '';
-        if (evtDef) return `    <bpmn:${n.type} id="${n.id}"${name}>\n      ${evtDef}\n    </bpmn:${n.type}>`;
-      }
-      return `    <bpmn:${n.type} id="${n.id}"${name} />`;
+    /* Flows semantic */
+    const nById=Object.fromEntries(nodes.map(n=>[n.id,n]));
+    const fxml=flows.map(f=>{
+      const nm=f.name?` name="${esc(f.name)}"`:' name=""';
+      const src=nById[f.from];
+      const isXorSrc=src&&src.type==='exclusiveGateway';
+      const isDef=xdef[f.from]===f.id;
+      const needCond=f.condition&&isXorSrc&&!isDef;
+      if(needCond) return `    <bpmn:sequenceFlow id="${f.id}"${nm} sourceRef="${f.from}" targetRef="${f.to}">\n      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${esc(f.condition)}</bpmn:conditionExpression>\n    </bpmn:sequenceFlow>`;
+      return `    <bpmn:sequenceFlow id="${f.id}"${nm} sourceRef="${f.from}" targetRef="${f.to}" />`;
     }).join('\n');
 
-    // Flows
-    const flowsXml = flows.map(f => {
-      const name = f.name ? ` name="${esc(f.name)}"` : '';
-      if (f.condition) {
-        return `    <bpmn:sequenceFlow id="${f.id}"${name} sourceRef="${f.from}" targetRef="${f.to}">\n      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${esc(f.condition)}</bpmn:conditionExpression>\n    </bpmn:sequenceFlow>`;
+    /* BPMNDI shapes */
+    let shapes='';
+    shapes+=`    <bpmndi:BPMNShape id="${ptid}_di" bpmnElement="${ptid}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X}" y="${TOP_Y}" width="${totalW}" height="${totalH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
+    if(!solo)actors.forEach((a,i)=>{
+      const lid=lids[a],ly=TOP_Y+i*lH,lx=POOL_X+POOL_LBL;
+      shapes+=`    <bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true">\n      <dc:Bounds x="${lx}" y="${ly}" width="${totalW-POOL_LBL}" height="${lH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
+    });
+    nodes.forEach(n=>{
+      const p=pos[n.id]; if(!p) return;
+      const isEv=n.type.includes('Event'),isGW=n.type.includes('Gateway');
+      let lbl='';
+      if(n.name){
+        if(isEv) lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${p.x-6}" y="${p.y+p.h+4}" width="${p.w+12}" height="14" /></bpmndi:BPMNLabel>`;
+        else if(isGW) lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${p.x-10}" y="${p.y+p.h+5}" width="70" height="27" /></bpmndi:BPMNLabel>`;
       }
-      return `    <bpmn:sequenceFlow id="${f.id}"${name} sourceRef="${f.from}" targetRef="${f.to}" />`;
-    }).join('\n');
-
-    /* ── DI XML ────────────────────────────────────────────── */
-    // Pool shape
-    let diShapes = `    <bpmndi:BPMNShape id="${participantId}_di" bpmnElement="${participantId}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X}" y="${POOL_TOP_Y}" width="${totalW}" height="${totalH}" />\n    </bpmndi:BPMNShape>\n`;
-
-    // Lane shapes
-    actors.forEach((actor, i) => {
-      const laneId = laneIds[actor];
-      const laneY  = POOL_TOP_Y + i * LANE_H;
-      diShapes += `    <bpmndi:BPMNShape id="${laneId}_di" bpmnElement="${laneId}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X + POOL_LABEL_W}" y="${laneY}" width="${totalW - POOL_LABEL_W}" height="${LANE_H}" />\n    </bpmndi:BPMNShape>\n`;
+      const ga=n.type==='exclusiveGateway'?' isMarkerVisible="true"':'';
+      shapes+=`    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}"${ga}>\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />${lbl}\n    </bpmndi:BPMNShape>\n`;
     });
 
-    // Element shapes
-    nodes.forEach(n => {
-      const p = posMap[n.id];
-      if (!p) return;
-      if (n.type === 'exclusiveGateway') {
-        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-      } else if (n.type.includes('Event')) {
-        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n      <bpmndi:BPMNLabel>\n        <dc:Bounds x="${p.x - 10}" y="${p.y + p.h + 4}" width="${p.w + 20}" height="14" />\n      </bpmndi:BPMNLabel>\n    </bpmndi:BPMNShape>\n`;
-      } else {
-        diShapes += `    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />\n    </bpmndi:BPMNShape>\n`;
-      }
+    /* BPMNDI edges */
+    let edges='';
+    flows.forEach(f=>{
+      const sp=pos[f.from],tp=pos[f.to]; if(!sp||!tp) return;
+      const tn=nById[f.to],sn=nById[f.from];
+      const wps=waypoints(sp,tp,sn&&sn.type,tn);
+      const wxml=wps.map(([x,y])=>`      <di:waypoint x="${x}" y="${y}" />`).join('\n');
+      const lmx=Math.round((wps[0][0]+wps[wps.length-1][0])/2)-12;
+      const lmy=Math.round((wps[0][1]+wps[wps.length-1][1])/2)-7;
+      const lbl=f.name?`\n      <bpmndi:BPMNLabel><dc:Bounds x="${lmx}" y="${lmy}" width="36" height="14" /></bpmndi:BPMNLabel>`:'';
+      edges+=`    <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${wxml}${lbl}\n    </bpmndi:BPMNEdge>\n`;
     });
 
-    // Edge waypoints — L-shaped for cross-lane, straight for same lane
-    const nodeById = Object.fromEntries(nodes.map(n => [n.id, n]));
-    let diEdges = '';
-    flows.forEach(f => {
-      const srcN = nodeById[f.from];
-      const tgtN = nodeById[f.to];
-      const srcP = posMap[f.from];
-      const tgtP = posMap[f.to];
-      if (!srcP || !tgtP) return;
-
-      const srcRightX = srcP.x + srcP.w;
-      const srcMidY   = srcP.y + Math.round(srcP.h / 2);
-      const tgtLeftX  = tgtP.x;
-      const tgtMidY   = tgtP.y + Math.round(tgtP.h / 2);
-
-      let waypoints;
-      if (f.condition === 'Không' && tgtN?.branchType === 'reject') {
-        const srcBottomY = srcP.y + srcP.h;
-        const tgtTopY = tgtP.y;
-        const branchX = srcP.x + Math.round(srcP.w / 2);
-        waypoints = `      <di:waypoint x="${branchX}" y="${srcBottomY}" />\n      <di:waypoint x="${branchX}" y="${tgtTopY}" />`;
-      } else if (Math.abs(srcMidY - tgtMidY) < 5) {
-        // Same lane — straight
-        waypoints = `      <di:waypoint x="${srcRightX}" y="${srcMidY}" />\n      <di:waypoint x="${tgtLeftX}" y="${tgtMidY}" />`;
-      } else {
-        // Cross-lane — orthogonal L-shape
-        const midX = Math.round((srcRightX + tgtLeftX) / 2);
-        waypoints = `      <di:waypoint x="${srcRightX}" y="${srcMidY}" />\n      <di:waypoint x="${midX}" y="${srcMidY}" />\n      <di:waypoint x="${midX}" y="${tgtMidY}" />\n      <di:waypoint x="${tgtLeftX}" y="${tgtMidY}" />`;
-      }
-
-      const labelElem = f.name
-        ? `\n      <bpmndi:BPMNLabel>\n        <dc:Bounds x="${Math.round((srcRightX+tgtLeftX)/2-15)}" y="${Math.round((srcMidY+tgtMidY)/2-7)}" width="30" height="14" />\n      </bpmndi:BPMNLabel>`
-        : '';
-
-      diEdges += `    <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${waypoints}${labelElem}\n    </bpmndi:BPMNEdge>\n`;
-    });
-
-    /* ── FINAL XML ─────────────────────────────────────────── */
     return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions
   xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -295,33 +384,26 @@ const BpmnEngine = (() => {
   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
-  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
-  id="Definitions_1"
-  targetNamespace="http://bpmn.io/schema/bpmn"
-  exporter="BPMN Studio"
-  exporterVersion="5.0"
-  modeler:executionPlatform="Camunda Cloud"
-  modeler:executionPlatformVersion="8.6.0">
+  id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn"
+  exporter="BPMN Studio" exporterVersion="7.2">
 
-  <bpmn:collaboration id="${collabId}">
-    <bpmn:participant id="${participantId}" name="${safeTitle}" processRef="${processId}" />
+  <bpmn:collaboration id="${cid}">
+    <bpmn:participant id="${ptid}" name="${T}" processRef="${pid}" />
   </bpmn:collaboration>
 
-  <bpmn:process id="${processId}" name="${safeTitle}" isExecutable="false">
-    <bpmn:laneSet id="${laneSetId}">
-${laneXml}
-    </bpmn:laneSet>
-${nodesXml}
-${flowsXml}
+  <bpmn:process id="${pid}" name="${T}" isExecutable="false">
+${lsxml}${nxml}
+${fxml}
   </bpmn:process>
 
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="${collabId}">
-${diShapes}${diEdges}    </bpmndi:BPMNPlane>
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="${cid}">
+${shapes}${edges}    </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`;
   }
 
-  return { generate };
+  return {generate};
 })();
+
+if (typeof module !== 'undefined') module.exports = BpmnEngine;

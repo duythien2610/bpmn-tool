@@ -936,26 +936,30 @@ ${hasDesc
 YÊU CẦU BẮT BUỘC — tuân thủ 100% định dạng sau, KHÔNG được thêm giải thích:
 
 ĐỊNH DẠNG CHUẨN:
-  Bước thường:    [Số]. [Vai trò]: [Hành động ngắn gọn]
+  Bước thường:    [Số]. [Vai trò]: [Hành động]
   Bước điều kiện: [Số]. Nếu [Điều kiện]: [Vai trò]: [Hành động]
+  Bước song song: [Số]. Đồng thời: [Vai trò]: [Hành động]
 
 QUY TẮC:
 1. Mỗi dòng là một bước duy nhất — không gộp nhiều hành động vào một dòng.
 2. Vai trò (Actor) phải ngắn gọn, tối đa 4 từ. Ví dụ: Khách hàng, Hệ thống, Quản lý, Nhân viên kho, Kế toán, HR, Giám đốc, Shipper.
-3. Điều kiện rẽ nhánh PHẢI bắt đầu bằng "Nếu" và có dấu ": Actor: Hành động" ngay sau.
-4. Không dùng markdown (không in đậm, không in nghiêng, không dùng ##).
-5. Không thêm chú thích, ghi chú, tiêu đề hay giải thích bên ngoài danh sách bước.
+3. Điều kiện rẽ nhánh PHẢI bắt đầu bằng "Nếu" và có dấu ": Actor: Hành động" ngay sau. Luôn đi theo cặp (Nếu A / Nếu B) để tạo rẽ nhánh loại trừ (XOR).
+4. Các bước chạy song song (AND gateway) PHẢI bắt đầu bằng từ "Đồng thời:". Các bước này sẽ được gom vào cùng một khối song song.
+5. Không dùng markdown (không in đậm, không in nghiêng, không dùng ##).
+6. Không thêm chú thích, ghi chú, tiêu đề hay giải thích bên ngoài danh sách bước.
 
 VÍ DỤ ĐẦU RA ĐÚNG:
-1. Khách hàng: Đặt hàng trên website
-2. Hệ thống: Kiểm tra thông tin đơn hàng
-3. Nếu thông tin không hợp lệ: Hệ thống: Hiển thị lỗi và yêu cầu nhập lại
-4. Nếu thông tin hợp lệ: Nhân viên kho: Kiểm tra tồn kho
-5. Nếu hết hàng: Hệ thống: Gửi email thông báo hủy đơn cho khách hàng
-6. Nếu còn hàng: Nhân viên kho: Đóng gói và bàn giao cho shipper
-7. Shipper: Giao hàng đến khách hàng
-8. Khách hàng: Xác nhận đã nhận hàng
-9. Hệ thống: Cập nhật trạng thái đơn hàng hoàn thành
+1. Nhân viên: Tạo đơn mua hàng
+2. Quản lý: Phê duyệt đơn hàng
+3. Nếu đơn hàng bị từ chối: Nhân viên: Chỉnh sửa lại đơn hàng
+4. Nếu đơn hàng được duyệt: Nhân viên: Gửi đơn hàng cho nhà cung cấp
+5. Đồng thời: Nhân viên kho: Chuẩn bị bãi nhận hàng
+6. Đồng thời: Kế toán: Chuẩn bị chứng từ thanh toán
+7. Nhân viên kho: Nhận và kiểm tra hàng hóa
+8. Nếu hàng không đạt: Nhân viên kho: Trả lại hàng cho nhà cung cấp
+9. Nếu hàng đạt chuẩn: Nhân viên kho: Xác nhận nhập kho trên hệ thống
+10. Kế toán: Thực hiện thanh toán cho nhà cung cấp
+11. Hệ thống: Cập nhật tồn kho và lưu hồ sơ
 
 Bây giờ hãy xuất ra danh sách các bước theo đúng định dạng trên:`;
 

@@ -35,7 +35,7 @@ const BpmnEngine = (() => {
   const sz = t => { const v=SZ[t]||'100,80'; const [w,h]=v.split(',').map(Number); return {w,h}; };
 
   const POOL_X=100, POOL_LBL=30, LANE_LBL=30;
-  const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=55, REJ_DY=100;
+  const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=90, REJ_DY=100;
 
   const TMAP={
     task:'task',usertask:'userTask',servicetask:'serviceTask',sendtask:'sendTask',
@@ -62,7 +62,9 @@ const BpmnEngine = (() => {
     const b=c2.replace(neg,'').replace(/\s+/g,' ').trim();
     const wa=a.toLowerCase().split(/\s+/).filter(w=>w.length>2);
     const shared=wa.filter(w=>b.toLowerCase().includes(w));
-    return (shared.length ? shared.join(' ') : a) || 'Decision';
+    // Truncate to max 25 chars to keep gateway label concise
+    const raw=(shared.length ? shared.join(' ') : a) || 'Decision';
+    return raw.length > 25 ? raw.substring(0, 24).trim() + '…' : raw;
   }
 
   /* ── buildFlow ─────────────────────────────────────
@@ -449,10 +451,11 @@ const BpmnEngine = (() => {
           const evLblX = p.x - Math.round((evLblW - p.w)/2);
           lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${evLblX}" y="${p.y+p.h+4}" width="${evLblW}" height="28" /></bpmndi:BPMNLabel>`;
         } else if(isGW){
-          // Dynamic width for gateway labels (diamonds: 50x50)
-          const gwLblW = Math.min(Math.max(n.name.length*6, 80), 160);
+          // Dynamic width + height for gateway labels — allow 2 lines for long text
+          const gwLblW = Math.min(Math.max(n.name.length*7, 80), 220);
+          const gwLblH = n.name.length > 20 ? 40 : 28;
           const gwLblX = p.x - Math.round((gwLblW - p.w)/2);
-          lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${gwLblX}" y="${p.y+p.h+5}" width="${gwLblW}" height="28" /></bpmndi:BPMNLabel>`;
+          lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${gwLblX}" y="${p.y+p.h+5}" width="${gwLblW}" height="${gwLblH}" /></bpmndi:BPMNLabel>`;
         }
       }
       const ga=n.type==='exclusiveGateway'?' isMarkerVisible="true"':'';
@@ -469,18 +472,23 @@ const BpmnEngine = (() => {
       let lbl='';
       if (f.name) {
         const isVertical = wps.length===2 && Math.abs(wps[0][0]-wps[1][0])<=2;
-        const lblW = Math.min(Math.max(f.name.length*7, 40), 120);
+        // Dynamic width based on label length — no hard cap so text fits
+        const lblW = Math.min(Math.max(f.name.length*7, 40), 180);
+        // Height: 1 line if short, 2 lines if long
+        const lblH = f.name.length > 18 ? 28 : 14;
         let lx, ly;
         if (isVertical) {
-          // Vertical flow: label to the LEFT of the line
-          lx = wps[0][0] - lblW - 5;
-          ly = Math.round((wps[0][1]+wps[1][1])/2) - 7;
+          // Vertical flow (reject path): label to the LEFT of the line with enough space
+          lx = wps[0][0] - lblW - 8;
+          ly = Math.round((wps[0][1]+wps[1][1])/2) - Math.round(lblH/2);
         } else {
-          // Horizontal/angled flow: label ABOVE the first segment midpoint
-          lx = Math.round((wps[0][0]+wps[1][0])/2) - Math.round(lblW/2);
-          ly = Math.min(wps[0][1], wps[1][1]) - 18;
+          // Horizontal/angled: label ABOVE the midpoint of first segment
+          const midX = Math.round((wps[0][0]+wps[1][0])/2);
+          const midY = Math.min(wps[0][1], wps[1][1]);
+          lx = midX - Math.round(lblW/2);
+          ly = midY - lblH - 4;
         }
-        lbl = `\n      <bpmndi:BPMNLabel><dc:Bounds x="${lx}" y="${ly}" width="${lblW}" height="14" /></bpmndi:BPMNLabel>`;
+        lbl = `\n      <bpmndi:BPMNLabel><dc:Bounds x="${lx}" y="${ly}" width="${lblW}" height="${lblH}" /></bpmndi:BPMNLabel>`;
       }
       edges+=`    <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${wxml}${lbl}\n    </bpmndi:BPMNEdge>\n`;
     });

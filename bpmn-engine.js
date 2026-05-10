@@ -302,21 +302,27 @@ const BpmnEngine = (() => {
 
 
   /* ── generate XML ── */
-  function generate(title, steps) {
+  function generate(title, steps, opts) {
+    const singleProcess = !!(opts && opts.singleProcess);
     resetIds();
     if(!steps||!steps.length) steps=[
-      {step:1,actor:'Customer',action:'Submit request',type:'userTask'},
+      {step:1,actor:'System',action:'Submit request',type:'userTask'},
       {step:2,actor:'System',action:'Process request',type:'serviceTask'},
     ];
     const actSeen=[];
-    steps.forEach(s=>{const a=(s.actor||'').trim()||'System';if(!actSeen.includes(a))actSeen.push(a);});
-    const actors=actSeen.length?actSeen:['User'];
-    const solo=actors.length===1;
+    steps.forEach(s=>{
+      const a = singleProcess ? 'Process' : ((s.actor||'').trim()||'System');
+      if(!actSeen.includes(a)) actSeen.push(a);
+    });
+    const actors=actSeen.length?actSeen:['System'];
+    const solo = singleProcess || actors.length===1;
     const T=esc(title||'Process');
     const pid=uid('Proc'),cid=uid('Col'),ptid=uid('Part'),lsid=uid('LS');
     const lids={}; if(!solo) actors.forEach(a=>{lids[a]=uid('Lane');});
 
-    const {nodes,flows}=buildFlow(steps,actors);
+    // For singleProcess, re-map all actors to 'Process' for layout
+    const layoutSteps = singleProcess ? steps.map(s=>({...s, actor:'Process'})) : steps;
+    const {nodes,flows}=buildFlow(layoutSteps, actors);
     const {pos,lt,laneH,totalW,totalH}=assignPos(nodes,flows,actors,solo);
     const {inc,out}=connMap(nodes,flows);
 
@@ -363,11 +369,13 @@ const BpmnEngine = (() => {
 
     /* BPMNDI shapes */
     let shapes='';
-    shapes+=`    <bpmndi:BPMNShape id="${ptid}_di" bpmnElement="${ptid}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X}" y="${TOP_Y}" width="${totalW}" height="${totalH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-    if(!solo) actors.forEach(a=>{
-      const lid=lids[a],ly=lt[a],lx=POOL_X+POOL_LBL,lhh=laneH[a];
-      shapes+=`    <bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true">\n      <dc:Bounds x="${lx}" y="${ly}" width="${totalW-POOL_LBL}" height="${lhh}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
-    });
+    if (!singleProcess) {
+      shapes+=`    <bpmndi:BPMNShape id="${ptid}_di" bpmnElement="${ptid}" isHorizontal="true">\n      <dc:Bounds x="${POOL_X}" y="${TOP_Y}" width="${totalW}" height="${totalH}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
+      if(!solo) actors.forEach(a=>{
+        const lid=lids[a],ly=lt[a],lx=POOL_X+POOL_LBL,lhh=laneH[a];
+        shapes+=`    <bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true">\n      <dc:Bounds x="${lx}" y="${ly}" width="${totalW-POOL_LBL}" height="${lhh}" />\n      <bpmndi:BPMNLabel />\n    </bpmndi:BPMNShape>\n`;
+      });
+    }
     nodes.filter(n=>n.id&&pos[n.id]).forEach(n=>{
       const p=pos[n.id];
       const isEv=n.type.includes('Event'),isGW=n.type.includes('Gateway');
@@ -405,6 +413,31 @@ const BpmnEngine = (() => {
       }
       edges+=`    <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${wxml}${lbl}\n    </bpmndi:BPMNEdge>\n`;
     });
+
+    /* ── XML output ── */
+    if (singleProcess) {
+      // Flat process: no Collaboration, no Pool — BPMNPlane references the process directly
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn"
+  exporter="BPMN Studio" exporterVersion="7.3">
+
+  <bpmn:process id="${pid}" name="${T}" isExecutable="false">
+${nxml}
+${fxml}
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="${pid}">
+${shapes}${edges}    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`;
+    }
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions

@@ -565,7 +565,9 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
       }
       toast('✅ Sơ đồ được tạo bởi BPMN Studio Engine 🎉', 'success');
     } else {
-      xml = BpmnEngine.generate(state.title, state.steps);
+      xml = BpmnEngine.generate(state.title, state.steps, {
+        singleProcess: !!document.getElementById('toggle-single-process')?.checked
+      });
       toast('Tạo sơ đồ (offline mode)', 'info');
     }
 

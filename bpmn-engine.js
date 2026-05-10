@@ -276,10 +276,19 @@ const BpmnEngine = (() => {
           pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
         }
       } else {
-        // Reject END — to the right of the reject task (or gateway if no task)
+        // Reject END — 2 sub-cases:
         const srcId=flowFrom[n.id];
         const rp=(srcId&&pos[srcId])?pos[srcId]:null;
-        if (rp) {
+        const srcNode=srcId?nodes.find(nd=>nd&&nd.id===srcId):null;
+        const isGWSrc=srcNode&&srcNode.type&&srcNode.type.includes('Gateway');
+
+        if (rp && isGWSrc) {
+          // Source is GATEWAY directly (single conditional: no reject task between)
+          // → place End directly BELOW the gateway (same cx) so straight-down arrow matches
+          const ex=Math.round(rp.cx-w/2);
+          pos[n.id]={x:ex,y:rejY,w,h,cx:Math.round(rp.cx),cy:rejY+Math.round(h/2)};
+        } else if (rp) {
+          // Source is a REJECT TASK (binary XOR) → place End to the RIGHT of task
           const ex=rp.x+rp.w+32;
           pos[n.id]={x:ex,y:rejY,w,h,cx:ex+Math.round(w/2),cy:rejY+Math.round(h/2)};
         } else {

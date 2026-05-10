@@ -348,9 +348,19 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <strong>BA Checklist</strong>
           <span id="ba-checklist-badge">6 tiêu chí</span>
         </div>
+        <div class="checklist-actions">
+          <button class="btn-fix btn-fix--quick" id="btn-quick-fix" title="Tự động sửa các lỗi an toàn: tên task thiếu động từ, actor quá dài, task type sai">
+            🔧 Quick Fix
+          </button>
+          <button class="btn-fix btn-fix--suggest" id="btn-suggest-fix" title="Gợi ý cụ thể cho từng cảnh báo — bạn tự quyết định có áp dụng không">
+            💡 Gợi ý Fix
+          </button>
+        </div>
         <div id="ba-checklist-list" class="logic-review-list">
           <div class="logic-review-empty">Checklist sẽ xuất hiện sau khi có step.</div>
         </div>
+        <div id="ba-suggest-panel" class="ba-suggest-panel" style="display:none"></div>
+        <div id="ba-fix-toast" class="ba-fix-toast" style="display:none"></div>
       </section>
     </div>
 

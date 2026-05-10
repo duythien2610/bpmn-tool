@@ -277,6 +277,70 @@ function refreshReviewPanels(xml = state.xml) {
   renderBaChecklist();
 }
 
+/* ─── Quick Fix ──────────────────────────────────────────── */
+document.addEventListener('click', e => {
+  if (e.target.closest('#btn-quick-fix')) runQuickFix();
+  if (e.target.closest('#btn-suggest-fix')) toggleSuggestPanel();
+});
+
+function runQuickFix() {
+  if (!state.steps || state.steps.length === 0) {
+    toast('Chưa có steps để fix. Hãy Analyze trước.', 'warning'); return;
+  }
+  const { steps: fixed, fixes } = BATools.applyQuickFixes(state.steps);
+  if (fixes.length === 0) {
+    toast('✅ Không có lỗi nào cần Quick Fix!', 'success'); return;
+  }
+  state.steps = fixed;
+  // Re-render steps table
+  renderLogicSummary(state.steps);
+  // Re-run checklist
+  const xml = state.xml || '';
+  computeBaReview(state.steps, xml);
+  renderBaChecklist();
+  // Show toast summary
+  const toast2 = document.getElementById('ba-fix-toast');
+  if (toast2) {
+    toast2.innerHTML = `<strong>🔧 Quick Fix: ${fixes.length} thay đổi</strong><ul>` +
+      fixes.slice(0, 6).map(f => `<li>${escHtml(f.description)}</li>`).join('') +
+      (fixes.length > 6 ? `<li>...và ${fixes.length - 6} thay đổi khác</li>` : '') +
+      '</ul><button class="ba-fix-toast__close" onclick="this.parentElement.style.display=\'none\'">✕</button>';
+    toast2.style.display = 'block';
+    setTimeout(() => { if (toast2) toast2.style.display = 'none'; }, 8000);
+  }
+  toast(`🔧 Đã fix ${fixes.length} vấn đề tự động!`, 'success');
+}
+
+function toggleSuggestPanel() {
+  const panel = document.getElementById('ba-suggest-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  if (!state.steps || state.steps.length === 0) {
+    toast('Chưa có steps. Hãy Analyze trước.', 'warning'); return;
+  }
+  const checks = state.review.checklist || [];
+  const suggestions = BATools.getSuggestions(state.steps, checks);
+  if (!suggestions.length) {
+    panel.innerHTML = '<div class="ba-suggest-empty">✅ Tất cả checks đều pass — không có gợi ý nào!</div>';
+    panel.style.display = 'block'; return;
+  }
+  panel.innerHTML = `
+    <div class="ba-suggest-header">
+      💡 Gợi ý Fix (${suggestions.length} mục)
+      <button class="ba-suggest-close" onclick="document.getElementById('ba-suggest-panel').style.display='none'">✕</button>
+    </div>
+    ${suggestions.map(s => `
+      <div class="ba-suggest-item">
+        <div class="ba-suggest-title">${escHtml(s.icon)} ${escHtml(s.title)}</div>
+        <ul class="ba-suggest-list">
+          ${s.suggestions.map(sg => `<li>${escHtml(sg)}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('')}
+  `;
+  panel.style.display = 'block';
+}
+
 function syncFocusModeButton() {
   const btn = document.getElementById('btn-focus-mode');
   if (!btn) return;

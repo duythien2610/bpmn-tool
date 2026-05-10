@@ -445,6 +445,158 @@ ${questionLines}
     return safeSteps;
   }
 
+  /* ─── AUTO-FIX ENGINE ────────────────────────────────────────────────── */
+
+  /**
+   * applyQuickFixes(steps)
+   * Returns { steps: [...], fixes: [{key, description}] }
+   * Applies all safe, non-destructive fixes automatically.
+   */
+  function applyQuickFixes(steps) {
+    const safeSteps = Array.isArray(steps) ? steps.map(s => ({...s})) : [];
+    const fixes = [];
+
+    const verbPrefixRe = /^(kiểm|xác|phê|gửi|tạo|nhận|cập|duyệt|xử|đặt|lấy|giao|soạn|tính|thanh|lập|xuất|nhập|đóng|mở|submit|send|validate|review|approve|create|check|update|generate|process|receive|notify|collect|confirm|reject|verify|prepare|complete|cancel|assign|log|call|fetch|calculate|register|schedule|upload|download|trigger|deploy|start|stop|mark|close|report)/i;
+
+    // Verb prefix map by task type
+    const typeToVerb = {
+      userTask: 'Xác nhận', serviceTask: 'Xử lý', sendTask: 'Gửi',
+      receiveTask: 'Nhận', manualTask: 'Thực hiện', scriptTask: 'Chạy',
+      businessRuleTask: 'Áp dụng quy tắc', callActivity: 'Gọi quy trình',
+      task: 'Thực hiện',
+    };
+
+    safeSteps.forEach((s, i) => {
+      if (!s.action) return;
+      const isEvent = /Event/i.test(s.type);
+      const isGW    = /Gateway/i.test(s.type) || s.gatewayType;
+      if (isEvent || isGW) return;
+
+      // Fix 1: Verb+Object naming
+      if (!verbPrefixRe.test(s.action.trim())) {
+        const verb = typeToVerb[s.type] || 'Thực hiện';
+        const oldAction = s.action;
+        s.action = `${verb} ${s.action.charAt(0).toLowerCase()}${s.action.slice(1)}`;
+        fixes.push({ key: 'task-naming', description: `"${oldAction}" → "${s.action}"` });
+      }
+
+      // Fix 2: Trim actor names > 40 chars
+      if (s.actor && s.actor.length > 40) {
+        const old = s.actor;
+        s.actor = s.actor.substring(0, 40).trim();
+        fixes.push({ key: 'actors', description: `Actor rút gọn: "${old}" → "${s.actor}"` });
+      }
+
+      // Fix 3: Upgrade Hệ thống actor + generic task → serviceTask
+      if (/h[eệ]\s*th[oố]ng|system/i.test(s.actor) && s.type === 'task') {
+        s.type = 'serviceTask';
+        fixes.push({ key: 'actors', description: `Step ${s.step}: type task → serviceTask (actor là Hệ thống)` });
+      }
+    });
+
+    return { steps: safeSteps, fixes };
+  }
+
+  /**
+   * getSuggestions(steps, checks)
+   * Returns array of { key, icon, title, suggestions: [string] }
+   * Provides specific actionable text suggestions for each failing check.
+   */
+  function getSuggestions(steps, checks) {
+    const safeSteps = Array.isArray(steps) ? steps : [];
+    const results = [];
+
+    checks.forEach(check => {
+      if (check.status === 'pass') return; // skip passing checks
+
+      const sugg = { key: check.key, icon: '', title: check.label, suggestions: [] };
+
+      switch(check.key) {
+        case 'task-naming': {
+          const verbPrefixRe = /^(kiểm|xác|phê|gửi|tạo|nhận|cập|duyệt|xử|đặt|lấy|giao|soạn|tính|thanh|lập|xuất|nhập|đóng|mở|submit|send|validate|review|approve|create|check|update|generate|process|receive|notify)/i;
+          const bad = safeSteps.filter(s => s.action && !verbPrefixRe.test(s.action.trim()) && !/Event|Gateway/i.test(s.type) && !s.gatewayType);
+          bad.slice(0, 4).forEach(s => {
+            sugg.suggestions.push(`Step ${s.step}: Đổi "${s.action}" → "Kiểm tra ${s.action.toLowerCase()}" (thêm động từ đứng đầu)`);
+          });
+          sugg.icon = '🏷️';
+          break;
+        }
+        case 'gateways': {
+          const xorSteps = safeSteps.filter(s => s.gatewayType === 'exclusiveGateway' && s.condition);
+          xorSteps.forEach((s, i) => {
+            const idx = safeSteps.indexOf(s);
+            const next = safeSteps[idx + 1];
+            if (!next || next.gatewayType !== 'exclusiveGateway') {
+              sugg.suggestions.push(`Sau step ${s.step} (Nếu ${s.condition}), hãy thêm dòng: "Nếu không ${s.condition}: [Actor]: [Hành động]"`); 
+            }
+          });
+          const andGroups = [];
+          let buf = [];
+          safeSteps.forEach(s => {
+            if (s.gatewayType === 'parallelGateway') buf.push(s);
+            else if (buf.length) { andGroups.push(buf); buf = []; }
+          });
+          if (buf.length) andGroups.push(buf);
+          andGroups.filter(g => g.length < 2).forEach(g => {
+            sugg.suggestions.push(`AND gateway chỉ có 1 task (step ${g[0].step}). Hãy thêm 1 dòng "Đồng thời: [Actor]: [Hành động]" liên tiếp.`);
+          });
+          sugg.icon = '🔀';
+          break;
+        }
+        case 'exceptions': {
+          sugg.icon = '⚠️';
+          sugg.suggestions.push('Thêm ít nhất 1 nhánh ngoại lệ, ví dụ:');
+          sugg.suggestions.push('  → "Nếu từ chối: [Actor]: [Hành động xử lý]"');
+          sugg.suggestions.push('  → "Nếu lỗi [chi tiết]: Hệ thống: Ghi log và thông báo admin"');
+          break;
+        }
+        case 'happy-path': {
+          sugg.icon = '😊';
+          sugg.suggestions.push('Đảm bảo có ít nhất 1 bước KHÔNG điều kiện (không bắt đầu bằng "Nếu").');
+          sugg.suggestions.push('Ví dụ: Thêm "1. Khách hàng: Gửi yêu cầu" ở đầu quy trình.');
+          break;
+        }
+        case 'actors': {
+          sugg.icon = '👥';
+          sugg.suggestions.push('Đảm bảo mỗi step có Actor rõ ràng, ví dụ: Khách hàng, Hệ thống, Quản lý.');
+          sugg.suggestions.push('Format: "[Số]. [Actor]: [Hành động]" — Actor ngắn gọn, tối đa 4 từ.');
+          break;
+        }
+        case 'timer-sla': {
+          sugg.icon = '⏱';
+          sugg.suggestions.push('Nếu quy trình có SLA, thêm timer event:');
+          sugg.suggestions.push('  → Timer catch: "Chờ 30 phút:" hoặc "Chờ 2 giờ:"');
+          sugg.suggestions.push('  → Timeout escalation: "Nếu sau 4 giờ chưa phê duyệt: Supervisor: Nâng cấp ticket"');
+          break;
+        }
+        case 'task-count': {
+          sugg.icon = '📏';
+          const taskCount = safeSteps.filter(s => !['startEvent','endEvent'].includes(s.type)).length;
+          sugg.suggestions.push(`Hiện có ${taskCount} task (giới hạn 30). Hãy tách thành các subprocess con.`);
+          sugg.suggestions.push('Nhóm các bước liên quan vào 1 "Call Activity" (gọi sub-process).');
+          break;
+        }
+        case 'ambiguity': {
+          sugg.icon = '1️⃣';
+          const bad = safeSteps.filter(s => /\s+(và|và|and|,|;)\s+/i.test(s.action));
+          bad.slice(0, 3).forEach(s => {
+            sugg.suggestions.push(`Step ${s.step}: "${s.action}" — hãy tách thành 2 step riêng.`);
+          });
+          if (!bad.length) sugg.suggestions.push('Kiểm tra các step có vẻ mô tả nhiều hành động và tách chúng ra.');
+          break;
+        }
+        default: {
+          sugg.icon = '💡';
+          sugg.suggestions.push(check.detail);
+        }
+      }
+
+      if (sugg.suggestions.length) results.push(sugg);
+    });
+
+    return results;
+  }
+
   window.BATools = {
     escHtml,
     normalizeLines,
@@ -454,6 +606,8 @@ ${questionLines}
     buildBusinessArtifacts,
     buildBaDocumentMarkdown,
     compareProcessSnapshots,
-    attachNodeIdsFromXml
+    attachNodeIdsFromXml,
+    applyQuickFixes,
+    getSuggestions,
   };
 })();

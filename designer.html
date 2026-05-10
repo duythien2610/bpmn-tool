@@ -150,12 +150,12 @@
             </div>
             <div class="prompt-guidance-rules">
               <div class="guidance-card">
-                <strong>Good Prompt</strong>
-                <span>Mỗi câu là một hành động, nêu actor nếu có thể, tách điều kiện bằng “Nếu...”.</span>
+                <strong>Condition (XOR)</strong>
+                <span>Write branches in pairs: <code>If [A]: Actor: Action</code> / <code>If [B]: Actor: Action</code>. Each pair = one XOR gateway with two exclusive branches.</span>
               </div>
               <div class="guidance-card">
-                <strong>Generated Output</strong>
-                <span>Clear responsibility lanes, standard end events, Camunda Modeler-compatible XML.</span>
+                <strong>Parallel (AND)</strong>
+                <span>Each parallel task on its own line: <code>Simultaneously: Actor: Action</code>. All consecutive lines = parallel branches inside one AND split→join.</span>
               </div>
             </div>
           </section>

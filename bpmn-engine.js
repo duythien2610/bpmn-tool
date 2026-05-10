@@ -60,29 +60,34 @@ const BpmnEngine = (() => {
 
       /* ── AND gateway ── */
       if (gwT==='parallelGateway') {
-        nodes.push({id:tid,type,name:action,actor});
-        flows.push({id:uid('F'),from:prev,to:tid});
-        const spid=uid('GW'), jnid=uid('GW');
-        nodes.push({id:spid,type:'parallelGateway',name:'',actor});
-        flows.push({id:uid('F'),from:tid,to:spid});
-        const bst=[]; let j=i+1;
-        while(j<steps.length){
-          const nx=steps[j],ng=(nx.gatewayType||'').toLowerCase().replace(/[-_ ]/g,'');
-          if(ng==='parallelgateway'&&nx.actor&&nx.action){bst.push(nx);j++;}else break;
+        // Collect ALL consecutive parallel steps starting from current (i)
+        const allParallel = [{actor, action, type}];
+        let j = i + 1;
+        while (j < steps.length) {
+          const nx = steps[j];
+          const ng = (nx.gatewayType||'').toLowerCase().replace(/[-_ ]/g,'');
+          if (ng === 'parallelgateway' && nx.actor && nx.action) {
+            allParallel.push({actor:(nx.actor||'').trim()||first, action:nx.action.substring(0,80), type:rtype(nx.type)});
+            j++;
+          } else break;
         }
-        if(!bst.length){
-          flows.push({id:uid('F'),from:spid,to:jnid});
-        } else {
-          bst.forEach(b=>{
-            const ba=(b.actor||'').trim()||actor,bid=uid('T');
-            nodes.push({id:bid,type:rtype(b.type),name:b.action.substring(0,80),actor:ba,isBranch:true});
-            flows.push({id:uid('F'),from:spid,to:bid});
-            flows.push({id:uid('F'),from:bid,to:jnid});
-          });
-          i=j-1;
-        }
-        nodes.push({id:jnid,type:'parallelGateway',name:'',actor,isJoin:true});
-        prev=jnid;
+        i = j - 1; // skip consumed steps
+
+        // Create AND Split → [branch1, branch2, ...] → AND Join
+        const spid = uid('GW'), jnid = uid('GW');
+        nodes.push({id:spid, type:'parallelGateway', name:'', actor});
+        flows.push({id:uid('F'), from:prev, to:spid});
+
+        allParallel.forEach(b => {
+          const bid = uid('T');
+          nodes.push({id:bid, type:b.type, name:b.action, actor:b.actor, isBranch:true});
+          flows.push({id:uid('F'), from:spid, to:bid});
+          flows.push({id:uid('F'), from:bid, to:jnid});
+        });
+
+        nodes.push({id:jnid, type:'parallelGateway', name:'', actor, isJoin:true});
+        prev = jnid;
+
 
       /* ── XOR binary decision (pair of 2 conditions) ── */
       } else if (gwT==='exclusiveGateway' && cond) {

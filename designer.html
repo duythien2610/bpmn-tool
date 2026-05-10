@@ -1060,8 +1060,8 @@ QUY TẮC BẮTBUỘC:
 
 ✓ Mỗi dòng = 1 bước. Không gộp nhiều hành động.
 ✓ Vai trò: Khách hàng, Hệ thống, Quản lý, HR, Kế toán, Nhân viên kho, Shipper, v.v. (tối đa 4 từ)
-✓ Nếu có rẽ nhánh (Nếu...), PHẢI có cặp: "Nếu A" theo sau là "Nếu B" (XOR).
-✓ Bước "Đồng thời" sẽ tạo AND Gateway — gom các bước song song liên tiếp.
+✓ Nếu có rẽ nhánh (Nếu...), PHẢI có cặp: "Nếu A" theo sau là "Nếu B" (XOR gateway 2 nhánh).
+✓ Bước "Đồng thời" → AND Gateway: mỗi tác vụ song song là MỘT DÒNG riêng bắt đầu bằng "Đồng thời:". Các dòng "Đồng thời" liên tiếp sẽ được hiển thị SONG SONG nhau (ngang hàng trên sơ đồ). KHÔNG gộp nhiều tác vụ vào một dòng.
 ✓ Nếu có chờ đợi, ghi rõ "Chờ [thời gian]" — ví dụ: "Chờ 30 phút", "Chờ đến 15h".
 ✓ Nếu có timeout hoặc escalation, dùng "Nếu sau [thời gian]" — ví dụ: "Nếu sau 2 giờ".
 ✓ Không dùng markdown, không in đậm, không in nghiêng.
@@ -1097,15 +1097,9 @@ Bây giờ hãy xuất ra danh sách các bước BPMN hoàn chỉnh theo địn
       const btn = this;
       const originalHtml = btn.innerHTML;
       btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5l-7 7-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Đã Copy!`;
-
-    navigator.clipboard.writeText(promptText).then(() => {
-      const btn = this;
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5l-7 7-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Đã Copy!`;
       btn.style.background = 'rgba(16, 185, 129, 0.15)';
       btn.style.color = '#059669';
       btn.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-      
       setTimeout(() => {
         btn.innerHTML = originalHtml;
         btn.style.background = 'rgba(59, 130, 246, 0.1)';

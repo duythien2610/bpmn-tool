@@ -231,14 +231,18 @@ const BpmnEngine = (() => {
           pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
         }
       } else if (n.isBranch) {
+        // All parallel branches share the same X column (same cx snapshot)
+        // cx was already advanced by the AND split gateway before isBranch nodes
         const ex=cx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
-        brMaxX=Math.max(brMaxX,Math.round(ex)+Math.round(w/2));
+        brMaxX=Math.max(brMaxX, cx+w); // track rightmost edge of branch column
+        // DO NOT advance cx — all branches share the same column
       } else if (n.isJoin) {
-        const jx=Math.max(cx,brMaxX+GAP);
+        // Join goes after all branches
+        const jx=Math.max(cx, brMaxX+GAP);
         const ex=jx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
-        cx=Math.round(ex)+Math.round(w/2)+GAP;
+        cx=Math.round(jx)+w+GAP;
         brMaxX=0;
       } else {
         const ex=cx+w/2, ey=lMid;

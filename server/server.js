@@ -19,6 +19,10 @@ const { parseDescriptionToStructure } = require('./parser');
 const app = express();
 const PORT = process.env.PORT || process.env.BPMN_PORT || 3721;
 
+function countBpmnTag(xml, tag) {
+  return (String(xml || '').match(new RegExp(`<(?:\\w+:)?${tag}\\b`, 'gi')) || []).length;
+}
+
 // ── Middleware ─────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -99,13 +103,25 @@ app.post('/api/analyze', async (req, res) => {
     const { xml } = req.body;
     if (!xml) return res.status(400).json({ error: 'xml is required' });
 
-    const tasks      = (xml.match(/<bpmn:(?:task|userTask|serviceTask|sendTask|receiveTask|scriptTask|manualTask|businessRuleTask|callActivity)[^/]*\/>/gi)||[]).length;
-    const gateways   = (xml.match(/<bpmn:(?:exclusiveGateway|parallelGateway|inclusiveGateway|eventBasedGateway)[^/]*\/>/gi)||[]).length;
-    const lanes      = (xml.match(/<bpmn:lane /gi)||[]).length;
-    const startEvents = (xml.match(/<bpmn:startEvent/gi)||[]).length;
-    const endEvents  = (xml.match(/<bpmn:endEvent/gi)||[]).length;
-    const flows      = (xml.match(/<bpmn:sequenceFlow/gi)||[]).length;
-    const condFlows  = (xml.match(/<bpmn:conditionExpression/gi)||[]).length;
+    const tasks = [
+      'task',
+      'userTask',
+      'serviceTask',
+      'sendTask',
+      'receiveTask',
+      'scriptTask',
+      'manualTask',
+      'businessRuleTask',
+      'callActivity',
+      'subProcess'
+    ].reduce((sum, tag) => sum + countBpmnTag(xml, tag), 0);
+    const gateways = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway', 'eventBasedGateway']
+      .reduce((sum, tag) => sum + countBpmnTag(xml, tag), 0);
+    const lanes = countBpmnTag(xml, 'lane');
+    const startEvents = countBpmnTag(xml, 'startEvent');
+    const endEvents = countBpmnTag(xml, 'endEvent');
+    const flows = countBpmnTag(xml, 'sequenceFlow');
+    const condFlows = countBpmnTag(xml, 'conditionExpression');
 
     const complexity = 1 + gateways + condFlows;
     const complexityLabel = complexity > 20 ? 'Rất phức tạp'

@@ -415,8 +415,17 @@ const BpmnEngine = (() => {
       const isEv=n.type.includes('Event'),isGW=n.type.includes('Gateway');
       let lbl='';
       if(n.name){
-        if(isEv) lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${p.x-6}" y="${p.y+p.h+4}" width="${p.w+12}" height="14" /></bpmndi:BPMNLabel>`;
-        else if(isGW) lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${p.x-10}" y="${p.y+p.h+5}" width="70" height="27" /></bpmndi:BPMNLabel>`;
+        if(isEv){
+          // Dynamic width for event labels (circles: 36x36)
+          const evLblW = Math.min(Math.max(n.name.length*6, 48), 140);
+          const evLblX = p.x - Math.round((evLblW - p.w)/2);
+          lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${evLblX}" y="${p.y+p.h+4}" width="${evLblW}" height="28" /></bpmndi:BPMNLabel>`;
+        } else if(isGW){
+          // Dynamic width for gateway labels (diamonds: 50x50)
+          const gwLblW = Math.min(Math.max(n.name.length*6, 80), 160);
+          const gwLblX = p.x - Math.round((gwLblW - p.w)/2);
+          lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${gwLblX}" y="${p.y+p.h+5}" width="${gwLblW}" height="28" /></bpmndi:BPMNLabel>`;
+        }
       }
       const ga=n.type==='exclusiveGateway'?' isMarkerVisible="true"':'';
       shapes+=`    <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}"${ga}>\n      <dc:Bounds x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />${lbl}\n    </bpmndi:BPMNShape>\n`;

@@ -1464,11 +1464,13 @@ function parseFallback(title, desc) {
       }
     }
 
-    /* 5B. SPLIT ACTOR : ACTION */
+    /* 5B. SPLIT ACTOR : ACTION — skip for intermediate events */
     let actor  = null;
     let action = bodyText;
 
-    if (bodyText) {
+    const isIntermediateEvent = isTimerCatch || isMsgCatch || isSigThrow;
+
+    if (bodyText && !isIntermediateEvent) {
       // Match "Actor: Action" where actor is short (<=4 words), no commas
       const m = bodyText.match(/^([^,:\uFF1A\n]{2,40})[:\uFF1A](.*)/);
       if (m) {
@@ -1521,6 +1523,11 @@ function parseFallback(title, desc) {
       actor = lastActor;
     } else if (isSigThrow) {
       type = 'intermediateThrowEvent';
+      // Extract description after "Gửi thông báo:"
+      const colonIdx = line.indexOf(':');
+      action = colonIdx !== -1 ? line.substring(colonIdx + 1).trim() : line.trim();
+      if (!action) action = line.trim();
+      actor = lastActor; // inherit last actor, NOT a new lane
     } else {
       for (const { re, t } of TASK_TYPE_RULES) {
         if (re.test(action)) { type = t; break; }

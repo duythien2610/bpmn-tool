@@ -112,8 +112,85 @@ const scenarios = [
     expect: result => {
       assert.ok(result.actors.length >= 4, 'multi-lane handoff should include at least 4 actors');
       assert.ok(result.steps.every(step => step.actor), 'every handoff step should have actor');
+    }  },
+  {
+    name: 'ecommerce-timeout',
+    title: 'E-Commerce Order with Payment Timeout',
+    description: `1. Customer: Place order on website
+2. System: Generate payment invoice and send to customer email
+3. Wait 30 minutes for payment notification
+4. If payment received within 30 min: System: Confirm order and send shipment notification
+5. If payment timeout after 30 min: System: Cancel order and send cancellation email
+6. If payment received: Warehouse Staff: Prepare and pack order
+7. Warehouse Staff: Hand over package to shipper
+8. Shipper: Deliver goods and get customer signature
+9. Customer: Confirm delivery and rate transaction
+10. System: Update inventory and close order`,
+    expect: result => {
+      assert.ok(result.steps.some(step => /chờ|wait/i.test(step.action)), 'ecommerce timeout should include wait/timer step');
+      assert.ok(result.actors.includes('Khách hàng') || result.actors.includes('Customer'), 'should have customer lane');
+      assert.ok(result.steps.filter(step => step.condition).length >= 2, 'should include multiple conditional branches');
     }
-  }
+  },
+  {
+    name: 'support-ticket-escalation',
+    title: 'Customer Support Ticket with SLA & Escalation',
+    description: `1. Customer: Submit support ticket via portal
+2. System: Send auto-confirmation email and create ticket record
+3. Support Agent: Receive and read ticket notification
+4. Support Agent: Attempt to resolve issue within 4 hours (SLA)
+5. If issue resolved within 4 hours: Support Agent: Close ticket and mark resolved
+6. If issue NOT resolved after 4 hours: System: Send escalation alert to supervisor
+7. Supervisor: Review unresolved ticket and assign to senior agent if needed
+8. Senior Agent: Investigate complex issue
+9. Senior Agent: Implement solution and update ticket
+10. Customer: Review solution and confirm ticket closure
+11. System: Send satisfaction survey to customer and archive ticket`,
+    expect: result => {
+      assert.ok(result.actors.length >= 3, 'escalation flow should have multiple actors');
+      assert.ok(result.steps.filter(step => step.condition).length >= 2, 'should have escalation conditions');
+    }
+  },
+  {
+    name: 'batch-data-import',
+    title: 'Batch Data Import with Error Handling & Retry',
+    description: `1. Data Team: Prepare CSV file for import
+2. System: Schedule batch import job (daily at 2 AM)
+3. System: Wait for scheduled time to arrive
+4. System: Start data import process from CSV
+5. System: Validate each record against business rules
+6. If validation error found on any record: System: Log error and move to error queue
+7. If record valid: System: Insert record into database and update counter
+8. If total errors > 10% of batch: System: Pause import and send alert to Data Manager
+9. If errors detected: Data Manager: Review error log and fix source data
+10. Data Manager: Retry import job with corrected data
+11. If all records valid: System: Generate import report and send to stakeholders
+12. System: Archive completed import and cleanup temporary files`,
+    expect: result => {
+      assert.ok(result.steps.some(step => /chờ|wait|schedule/i.test(step.action)), 'batch import should include scheduled wait');
+      assert.ok(result.steps.filter(step => step.condition).length >= 2, 'should include error handling conditions');
+    }
+  },
+  {
+    name: 'saas-subscription-renewal',
+    title: 'SaaS Subscription Auto-Renewal with Reminders',
+    description: `1. System: Check subscription expiry date daily at midnight
+2. If expiry in 30 days: System: Send first reminder email to customer
+3. Wait 5 days
+4. If subscription NOT renewed: System: Send second reminder (urgent)
+5. Wait 5 days until 10 days before expiry
+6. If subscription NOT renewed: System: Send final warning email
+7. Wait 10 days until expiry date
+8. On expiry date: System: Attempt to charge saved payment method
+9. If payment successful: System: Extend subscription for 1 year and send confirmation
+10. If payment failed: System: Disable account and notify customer of failed payment
+11. Customer: View account status and can pay manually to restore access
+12. If manual payment received: System: Reactivate account immediately
+13. System: Archive subscription records and cleanup logs`,
+    expect: result => {
+      assert.ok(result.steps.some(step => /chờ|wait|schedule/i.test(step.action)), 'subscription renewal should include multiple waits');
+      assert.ok(result.steps.filter(step => step.condition).length >= 3, 'should include multiple conditional branches for payment status');
+    }  }
 ];
 
 async function runScenario(scenario) {

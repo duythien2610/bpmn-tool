@@ -2320,6 +2320,10 @@ body.focus-bpmn .xml-sidebar {
   background: var(--warning-bg); color: var(--warning);
   border: 1px solid #fde68a;
 }
+.fgm-rule-badge--event {
+  background: #f3e8ff; color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
 .fgm-actor-grid {
   display: flex; flex-wrap: wrap; gap: 6px;
 }

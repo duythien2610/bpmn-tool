@@ -234,43 +234,18 @@ const BpmnEngine = (() => {
     let cumY=TOP_Y;
     actors.forEach(a=>{lt[a]=cumY; cumY+=laneH[a];});
 
+    /* PASS 1 — main-flow nodes (gateways, tasks, joins, events) */
     nodes.forEach(n=>{
-      if(typeof n!=='object'||!n.id) return;
+      if(typeof n!=='object'||!n.id||n.isReject) return;
       const {w,h}=sz(n.type);
       const lTop=lt[n.actor]??TOP_Y;
       const thisLH=laneH[n.actor]??baseLH;
-      // Main flow center line is at 1/3 from top when lane has reject row, else center
       const lMid = rejPerLane[n.actor]>0 ? lTop+Math.round(baseLH/2) : lTop+Math.round(thisLH/2);
-      // Reject row Y = below main flow, still inside the lane
-      const rejY = lTop+baseLH+10;
-
-      if (n.isReject && n.type!=='endEvent') {
-        // Reject TASK: same X as gateway, on the reject row INSIDE the lane
-        if (n.gwRef && pos[n.gwRef]) {
-          const gp=pos[n.gwRef];
-          pos[n.id]={x:Math.round(gp.cx-w/2),y:rejY,w,h,cx:gp.cx,cy:rejY+Math.round(h/2)};
-        } else {
-          pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
-        }
-      } else if (n.isReject && n.type==='endEvent') {
-        // Reject END: to the RIGHT of the reject task, same reject row
-        const srcId=flowFrom[n.id];
-        if (srcId && pos[srcId]) {
-          const rp=pos[srcId];
-          const ex=rp.x+rp.w+30;
-          pos[n.id]={x:ex,y:Math.round(rp.cy-h/2),w,h,cx:ex+Math.round(w/2),cy:rp.cy};
-        } else {
-          pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
-        }
-      } else if (n.isBranch) {
-        // All parallel branches share the same X column (same cx snapshot)
-        // cx was already advanced by the AND split gateway before isBranch nodes
+      if (n.isBranch) {
         const ex=cx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
-        brMaxX=Math.max(brMaxX, cx+w); // track rightmost edge of branch column
-        // DO NOT advance cx — all branches share the same column
+        brMaxX=Math.max(brMaxX, cx+w);
       } else if (n.isJoin) {
-        // Join goes after all branches
         const jx=Math.max(cx, brMaxX+GAP);
         const ex=jx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
@@ -283,12 +258,43 @@ const BpmnEngine = (() => {
       }
     });
 
+    /* PASS 2 — reject nodes (pos[gwRef] guaranteed set from pass 1) */
+    nodes.forEach(n=>{
+      if(typeof n!=='object'||!n.id||!n.isReject) return;
+      const {w,h}=sz(n.type);
+      const actor=n.actor||actors[0]||'';
+      const lTop=lt[actor]??TOP_Y;
+      const rejY=lTop+baseLH+10;
+
+      if (n.type!=='endEvent') {
+        // Reject TASK — directly below its gateway
+        const gp=(n.gwRef&&pos[n.gwRef])?pos[n.gwRef]:null;
+        if (gp) {
+          const rx=Math.round(gp.cx-w/2);
+          pos[n.id]={x:rx,y:rejY,w,h,cx:Math.round(gp.cx),cy:rejY+Math.round(h/2)};
+        } else {
+          pos[n.id]={x:cx,y:rejY,w,h,cx:cx+Math.round(w/2),cy:rejY+Math.round(h/2)};
+        }
+      } else {
+        // Reject END — to the right of the reject task (or gateway if no task)
+        const srcId=flowFrom[n.id];
+        const rp=(srcId&&pos[srcId])?pos[srcId]:null;
+        if (rp) {
+          const ex=rp.x+rp.w+32;
+          pos[n.id]={x:ex,y:rejY,w,h,cx:ex+Math.round(w/2),cy:rejY+Math.round(h/2)};
+        } else {
+          pos[n.id]={x:cx+w+GAP,y:rejY,w,h,cx:cx+w+GAP+Math.round(w/2),cy:rejY+Math.round(h/2)};
+        }
+      }
+    });
+
     const allP=Object.values(pos);
     const maxR=allP.length?Math.max(...allP.map(p=>p.x+p.w)):x0+200;
-    const totalW=maxR-POOL_X+70;
+    const totalW=maxR-POOL_X+80;
     const totalH=cumY-TOP_Y;
     return {pos,lt,laneH,totalW,totalH};
   }
+
 
 
   function connMap(nodes,flows) {

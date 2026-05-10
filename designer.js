@@ -1506,6 +1506,86 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
   toast(`Metadata: ${owner} · ${version} · ${status.toUpperCase()}`, 'success');
 });
 
+function countBpmnTag(xml, tag) {
+  return (String(xml || '').match(new RegExp(`<(?:\\w+:)?${tag}\\b`, 'gi')) || []).length;
+}
+
+function analyzeXmlLocally(xml) {
+  const tasks = [
+    'task',
+    'userTask',
+    'serviceTask',
+    'sendTask',
+    'receiveTask',
+    'scriptTask',
+    'manualTask',
+    'businessRuleTask',
+    'callActivity',
+    'subProcess'
+  ].reduce((sum, tag) => sum + countBpmnTag(xml, tag), 0);
+  const gateways = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway', 'eventBasedGateway']
+    .reduce((sum, tag) => sum + countBpmnTag(xml, tag), 0);
+  const lanes = countBpmnTag(xml, 'lane');
+  const startEvents = countBpmnTag(xml, 'startEvent');
+  const endEvents = countBpmnTag(xml, 'endEvent');
+  const sequenceFlows = countBpmnTag(xml, 'sequenceFlow');
+  const conditionalFlows = countBpmnTag(xml, 'conditionExpression');
+
+  const issues = [];
+  if (startEvents === 0) issues.push({ severity: 'error', message: 'Thiếu Start Event' });
+  if (endEvents === 0) issues.push({ severity: 'warning', message: 'Thiếu End Event' });
+  if (gateways > 0 && conditionalFlows === 0) issues.push({ severity: 'warning', message: 'Gateway không có Condition Expression' });
+  if (lanes === 0 && tasks > 3) issues.push({ severity: 'info', message: 'Nên thêm Swimlane để phân trách nhiệm' });
+
+  const complexityScore = 1 + gateways + conditionalFlows;
+  const complexityLabel = complexityScore > 20 ? 'Rất phức tạp'
+    : complexityScore > 10 ? 'Phức tạp'
+    : complexityScore > 5 ? 'Trung bình'
+    : 'Đơn giản';
+
+  return {
+    success: true,
+    statistics: { tasks, gateways, lanes, startEvents, endEvents, sequenceFlows, conditionalFlows },
+    complexity: { score: complexityScore, label: complexityLabel },
+    issues,
+    valid: !issues.some(issue => issue.severity === 'error'),
+    offline: true,
+  };
+}
+
+function validateXmlLocally(xml) {
+  const issues = [];
+  const exclusiveGatewayCount = countBpmnTag(xml, 'exclusiveGateway');
+  const conditionalFlowCount = countBpmnTag(xml, 'conditionExpression');
+  const defaultFlowCount = (String(xml || '').match(/\bdefault="/gi) || []).length;
+
+  if (!xml.includes('<bpmn:process') && !xml.includes('<process')) {
+    issues.push({ severity: 'error', message: 'Missing <bpmn:process> element' });
+  }
+  if (countBpmnTag(xml, 'startEvent') === 0) {
+    issues.push({ severity: 'error', message: 'No Start Event — every process requires exactly one None Start Event' });
+  }
+  if (countBpmnTag(xml, 'endEvent') === 0) {
+    issues.push({ severity: 'warning', message: 'No End Event — every process path should terminate at an End Event' });
+  }
+  if (!xml.includes('bpmn:collaboration')) {
+    issues.push({ severity: 'warning', message: 'No Pool/Participant — consider wrapping in a Collaboration for swimlane processes' });
+  }
+  if (exclusiveGatewayCount > 0 && conditionalFlowCount === 0) {
+    issues.push({ severity: 'warning', message: 'Exclusive Gateway present but no conditionExpression on outgoing flows' });
+  }
+  if (exclusiveGatewayCount > 0 && defaultFlowCount === 0) {
+    issues.push({ severity: 'info', message: 'Exclusive Gateway has no default flow — diagram is valid but can be harder to read in modelers' });
+  }
+
+  return {
+    valid: !issues.some(issue => issue.severity === 'error'),
+    issues,
+    message: issues.length === 0 ? 'Valid BPMN 2.0 (offline)' : 'Has issues',
+    offline: true,
+  };
+}
+
 /* ─── ANALYZE DIAGRAM ────────────────────────────────────────────── */
 document.getElementById('btn-analyze-diagram').addEventListener('click', async () => {
   if (!state.viewer && !state.xml) { toast('Chưa có diagram để phân tích', 'warn'); return; }
@@ -1520,11 +1600,12 @@ document.getElementById('btn-analyze-diagram').addEventListener('click', async (
     if (state.viewer) {
       try { const r = await state.viewer.saveXML({ format: true }); xml = r.xml; } catch(e) { /* use state.xml */ }
     }
-    const res  = await fetch(`${API_BASE}/analyze`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ xml })
-    });
-    const data = await res.json();
+    const data = serverAvailable
+      ? await fetch(`${API_BASE}/analyze`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ xml })
+        }).then(res => res.json())
+      : analyzeXmlLocally(xml);
     renderAnalyzeModal(data, xml);
   } catch(e) {
     document.getElementById('analyze-modal-body').innerHTML = `<div style="color:#dc2626">❌ Lỗi: ${e.message}</div>`;
@@ -1564,7 +1645,7 @@ function renderAnalyzeModal(data, xml) {
 
     <div class="compliance-bar-wrap" style="margin-bottom:16px">
       <div class="compliance-label-row">
-        <span>BPMN 2.0 Quality Score</span>
+        <span>BPMN 2.0 Quality Score${data.offline ? ' · Offline' : ''}</span>
         <strong>${score}/100</strong>
       </div>
       <div class="compliance-bar">
@@ -1604,11 +1685,12 @@ document.getElementById('btn-validate-diagram').addEventListener('click', async 
   if (!modeler) { toast('⚠️ Không có diagram', 'warn'); return; }
   try {
     const { xml } = await modeler.saveXML({ format: true });
-    const res  = await fetch(`${API_BASE}/validate`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ xml })
-    });
-    const data = await res.json();
+    const data = serverAvailable
+      ? await fetch(`${API_BASE}/validate`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ xml })
+        }).then(res => res.json())
+      : validateXmlLocally(xml);
     if (data.valid) {
       toast('✅ Valid BPMN 2.0 — ' + (data.message||'OK'), 'success');
     } else {

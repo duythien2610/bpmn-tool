@@ -1,118 +1,318 @@
-/**
- * BPMN Service v5 — Camunda 8 / BPMN 2.0 Compliant
- * Fixes: correct Yes/No gateway branching, Zeebe extensions, proper flow connections
- */
 'use strict';
 
 const { layoutProcess } = require('bpmn-auto-layout');
 
 let _n = 0;
-const uid = (p='el') => `${p}_${(++_n).toString(36)}${Math.random().toString(36).slice(2,5)}`;
+const uid = (prefix = 'el') => `${prefix}_${(++_n).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const resetIds = () => { _n = 0; };
-const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc = value => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
 
 const TYPE_MAP = {
-  task:'task', usertask:'userTask', servicetask:'serviceTask',
-  manualtask:'manualTask', sendtask:'sendTask', receivetask:'receiveTask',
-  scripttask:'scriptTask', businessruletask:'businessRuleTask', callactivity:'callActivity',
-  user:'userTask', service:'serviceTask', send:'sendTask', manual:'manualTask',
-  receive:'receiveTask', script:'scriptTask', rule:'businessRuleTask', call:'callActivity',
-  intermediatecatchevent: 'intermediateCatchEvent', intermediatethrowevent: 'intermediateThrowEvent',
-  subprocess: 'subProcess'
+  task: 'task',
+  usertask: 'userTask',
+  servicetask: 'serviceTask',
+  manualtask: 'manualTask',
+  sendtask: 'sendTask',
+  receivetask: 'receiveTask',
+  scripttask: 'scriptTask',
+  businessruletask: 'businessRuleTask',
+  callactivity: 'callActivity',
+  subprocess: 'subProcess',
+  intermediatecatchevent: 'intermediateCatchEvent',
+  intermediatethrowevent: 'intermediateThrowEvent',
+  user: 'userTask',
+  service: 'serviceTask',
+  send: 'sendTask',
+  manual: 'manualTask',
+  receive: 'receiveTask',
+  script: 'scriptTask',
+  rule: 'businessRuleTask',
+  call: 'callActivity'
 };
-const resolveType = t => TYPE_MAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
 
 const SIZE = {
-  task:{w:100,h:80}, userTask:{w:100,h:80}, serviceTask:{w:100,h:80},
-  sendTask:{w:100,h:80}, receiveTask:{w:100,h:80}, manualTask:{w:100,h:80},
-  scriptTask:{w:100,h:80}, businessRuleTask:{w:100,h:80}, callActivity:{w:100,h:80},
-  startEvent:{w:36,h:36}, endEvent:{w:36,h:36},
-  intermediateCatchEvent:{w:36,h:36}, intermediateThrowEvent:{w:36,h:36},
-  exclusiveGateway:{w:50,h:50}, parallelGateway:{w:50,h:50},
-  inclusiveGateway:{w:50,h:50}, eventBasedGateway:{w:50,h:50},
-  subProcess:{w:120,h:100}
+  task: { w: 100, h: 80 },
+  userTask: { w: 100, h: 80 },
+  serviceTask: { w: 100, h: 80 },
+  sendTask: { w: 100, h: 80 },
+  receiveTask: { w: 100, h: 80 },
+  manualTask: { w: 100, h: 80 },
+  scriptTask: { w: 100, h: 80 },
+  businessRuleTask: { w: 100, h: 80 },
+  callActivity: { w: 100, h: 80 },
+  subProcess: { w: 140, h: 100 },
+  startEvent: { w: 36, h: 36 },
+  endEvent: { w: 36, h: 36 },
+  intermediateCatchEvent: { w: 36, h: 36 },
+  intermediateThrowEvent: { w: 36, h: 36 },
+  exclusiveGateway: { w: 50, h: 50 },
+  parallelGateway: { w: 50, h: 50 },
+  inclusiveGateway: { w: 50, h: 50 },
+  eventBasedGateway: { w: 50, h: 50 }
 };
-const elSize = t => SIZE[t] || {w:100,h:80};
 
-// ── Zeebe extension builder ──────────────────────────────────────────────────
+const POOL_X = 100;
+const POOL_LABEL_W = 30;
+const LANE_LABEL_W = 30;
+const LANE_H = 170;
+const LANE_H_SOLO = 130;
+const TOP_Y = 60;
+const GAP_X = 70;
+const REJECT_OFFSET_Y = 100;
+
+const resolveType = type => TYPE_MAP[String(type || 'task').toLowerCase().replace(/[-_ ]/g, '')] || 'task';
+const normalizeGatewayType = type => {
+  const raw = String(type || '').toLowerCase().replace(/[-_ ]/g, '');
+  if (raw === 'parallelgateway') return 'parallelGateway';
+  if (raw === 'inclusivegateway') return 'inclusiveGateway';
+  if (raw === 'exclusivegateway') return 'exclusiveGateway';
+  if (raw === 'eventbasedgateway') return 'eventBasedGateway';
+  return '';
+};
+const elSize = type => SIZE[type] || SIZE.task;
+
 function buildZeebeExtensions(node) {
   const parts = [];
   if (node.type === 'serviceTask' && node.jobType) {
-    parts.push(`      <zeebe:taskDefinition type="${esc(node.jobType)}" retries="${node.retries||3}" />`);
+    parts.push(`      <zeebe:taskDefinition type="${esc(node.jobType)}" retries="${node.retries || 3}" />`);
   }
-  if ((node.type === 'userTask') && (node.assignee || node.candidateGroups || node.formKey || node.dueDate)) {
-    if (node.assignee)        parts.push(`      <zeebe:assignment assignee="${esc(node.assignee)}" />`);
+  if (node.type === 'userTask' && (node.assignee || node.candidateGroups || node.formKey || node.dueDate)) {
+    if (node.assignee) parts.push(`      <zeebe:assignment assignee="${esc(node.assignee)}" />`);
     if (node.candidateGroups) parts.push(`      <zeebe:assignment candidateGroups="${esc(node.candidateGroups)}" />`);
-    if (node.formKey)         parts.push(`      <zeebe:formDefinition formKey="${esc(node.formKey)}" />`);
+    if (node.formKey) parts.push(`      <zeebe:formDefinition formKey="${esc(node.formKey)}" />`);
   }
   if (!parts.length) return '';
   return `\n    <bpmn:extensionElements>\n${parts.join('\n')}\n    </bpmn:extensionElements>`;
 }
 
-// ── Build flow model ─────────────────────────────────────────────────────────
-// Gateway rule: each step with a condition spawns an XOR gateway AFTER that task.
-// The gateway's YES branch connects forward to the NEXT task in the main sequence.
-// The NO branch terminates at a reject EndEvent.
+function xorLabel(leftCond, rightCond) {
+  const negativeRe = /\b(kh[oô]ng|ch[uư]a|not|invalid|chưa)\b/gi;
+  const a = String(leftCond || '').replace(negativeRe, '').replace(/\s+/g, ' ').trim();
+  const b = String(rightCond || '').replace(negativeRe, '').replace(/\s+/g, ' ').trim();
+  const aWords = a.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  const shared = aWords.filter(word => b.toLowerCase().includes(word));
+  return (shared.length ? shared.join(' ') : a) || 'Decision';
+}
+
 function buildFlow(steps, actors) {
-  const nodes = [], flows = [];
-  const firstActor = actors[0] || 'System';
+  const nodes = [];
+  const flows = [];
+  const firstActor = actors[0] || 'Hệ thống';
+  const state = { openExclusive: null };
 
   const startId = uid('Start');
   nodes.push({ id: startId, type: 'startEvent', name: 'Bắt đầu', actor: firstActor });
-
   let prevId = startId;
-  let pendingYes = null; // { gwId, yesFlowId } — open Yes-branch waiting for next task
 
-  steps.forEach((step, idx) => {
-    const actor   = (step.actor||'').trim() || firstActor;
-    const action  = (step.action || `Bước ${idx+1}`).substring(0, 80);
-    const cond    = (step.condition||'').trim();
-    const type    = resolveType(step.type || 'task');
-    const gwType  = step.gatewayType || (cond ? 'exclusiveGateway' : null);
-    const taskId  = uid('Task');
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i] || {};
+    const actor = (step.actor || '').trim() || firstActor;
+    const action = String(step.action || `Bước ${i + 1}`).substring(0, 120);
+    const condition = String(step.condition || '').trim();
+    const gatewayType = normalizeGatewayType(step.gatewayType) || (condition ? 'exclusiveGateway' : '');
+    const type = resolveType(step.type);
+    const taskId = uid('Task');
+
+    if (gatewayType === 'parallelGateway' || gatewayType === 'inclusiveGateway') {
+      const branches = [{
+        actor,
+        action,
+        type,
+        eventType: step.eventType,
+        jobType: step.jobType,
+        retries: step.retries,
+        assignee: step.assignee,
+        candidateGroups: step.candidateGroups,
+        formKey: step.formKey,
+        dueDate: step.dueDate
+      }];
+      let nextIndex = i + 1;
+
+      while (nextIndex < steps.length) {
+        const nextStep = steps[nextIndex] || {};
+        const nextGateway = normalizeGatewayType(nextStep.gatewayType);
+        if (nextGateway !== gatewayType || !nextStep.action) break;
+        branches.push({
+          actor: (nextStep.actor || '').trim() || firstActor,
+          action: String(nextStep.action).substring(0, 120),
+          type: resolveType(nextStep.type),
+          eventType: nextStep.eventType,
+          jobType: nextStep.jobType,
+          retries: nextStep.retries,
+          assignee: nextStep.assignee,
+          candidateGroups: nextStep.candidateGroups,
+          formKey: nextStep.formKey,
+          dueDate: nextStep.dueDate
+        });
+        nextIndex++;
+      }
+
+      i = nextIndex - 1;
+      const splitId = uid('GW');
+      const joinId = uid('GW');
+      nodes.push({ id: splitId, type: gatewayType, name: '', actor });
+      flows.push({ id: uid('Flow'), from: prevId, to: splitId });
+
+      branches.forEach(branch => {
+        const branchId = uid('Task');
+        nodes.push({
+          id: branchId,
+          type: branch.type,
+          name: branch.action,
+          actor: branch.actor,
+          isBranch: true,
+          eventType: branch.eventType,
+          jobType: branch.jobType,
+          retries: branch.retries,
+          assignee: branch.assignee,
+          candidateGroups: branch.candidateGroups,
+          formKey: branch.formKey,
+          dueDate: branch.dueDate
+        });
+        flows.push({ id: uid('Flow'), from: splitId, to: branchId });
+        flows.push({ id: uid('Flow'), from: branchId, to: joinId });
+      });
+
+      nodes.push({ id: joinId, type: gatewayType, name: '', actor, isJoin: true });
+      prevId = joinId;
+      continue;
+    }
+
+    if (gatewayType === 'exclusiveGateway' && condition) {
+      const nextStep = steps[i + 1] || null;
+      const nextCondition = nextStep ? String(nextStep.condition || '').trim() : '';
+      const nextGateway = nextStep ? normalizeGatewayType(nextStep.gatewayType) : '';
+      const nextIsBinaryPair = nextStep && nextCondition
+        && (!nextGateway || nextGateway === 'exclusiveGateway');
+
+      if (nextIsBinaryPair) {
+        const gatewayId = uid('GW');
+        const gatewayName = `${xorLabel(condition, nextCondition)}?`;
+        const continueActor = (nextStep.actor || '').trim() || firstActor;
+        const continueId = uid('Task');
+        const defaultFlowId = uid('Flow');
+
+        nodes.push({ id: gatewayId, type: 'exclusiveGateway', name: gatewayName, actor, defaultFlowId });
+        flows.push({ id: uid('Flow'), from: prevId, to: gatewayId });
+
+        nodes.push({
+          id: taskId,
+          type,
+          name: action,
+          actor,
+          isReject: true,
+          gatewayRef: gatewayId,
+          eventType: step.eventType,
+          jobType: step.jobType,
+          retries: step.retries,
+          assignee: step.assignee,
+          candidateGroups: step.candidateGroups,
+          formKey: step.formKey,
+          dueDate: step.dueDate
+        });
+        flows.push({ id: uid('Flow'), from: gatewayId, to: taskId, name: condition, condition });
+
+        const rejectEndId = uid('End');
+        nodes.push({
+          id: rejectEndId,
+          type: 'endEvent',
+          name: 'Kết thúc (từ chối)',
+          actor,
+          isReject: true,
+          gatewayRef: gatewayId
+        });
+        flows.push({ id: uid('Flow'), from: taskId, to: rejectEndId });
+
+        nodes.push({
+          id: continueId,
+          type: resolveType(nextStep.type),
+          name: String(nextStep.action || `Bước ${i + 2}`).substring(0, 120),
+          actor: continueActor,
+          eventType: nextStep.eventType,
+          jobType: nextStep.jobType,
+          retries: nextStep.retries,
+          assignee: nextStep.assignee,
+          candidateGroups: nextStep.candidateGroups,
+          formKey: nextStep.formKey,
+          dueDate: nextStep.dueDate
+        });
+        flows.push({ id: defaultFlowId, from: gatewayId, to: continueId, name: nextCondition, condition: nextCondition, isDefault: true });
+
+        prevId = continueId;
+        i++;
+        continue;
+      }
+
+      nodes.push({
+        id: taskId,
+        type,
+        name: action,
+        actor,
+        eventType: step.eventType,
+        jobType: step.jobType,
+        retries: step.retries,
+        assignee: step.assignee,
+        candidateGroups: step.candidateGroups,
+        formKey: step.formKey,
+        dueDate: step.dueDate
+      });
+      flows.push({ id: uid('Flow'), from: prevId, to: taskId });
+
+      const gatewayId = uid('GW');
+      const yesFlowId = uid('Flow');
+      nodes.push({ id: gatewayId, type: 'exclusiveGateway', name: condition.endsWith('?') ? condition : `${condition}?`, actor, defaultFlowId: yesFlowId });
+      flows.push({ id: uid('Flow'), from: taskId, to: gatewayId });
+
+      const rejectEndId = uid('End');
+      nodes.push({
+        id: rejectEndId,
+        type: 'endEvent',
+        name: 'Kết thúc (từ chối)',
+        actor,
+        isReject: true,
+        gatewayRef: gatewayId
+      });
+      flows.push({ id: uid('Flow'), from: gatewayId, to: rejectEndId, name: 'Không', condition: 'Không' });
+
+      state.openExclusive = { gatewayId, yesFlowId };
+      prevId = gatewayId;
+      continue;
+    }
 
     nodes.push({
-      id: taskId, type, name: action, actor,
+      id: taskId,
+      type,
+      name: action,
+      actor,
       eventType: step.eventType,
-      jobType: step.jobType, retries: step.retries,
-      assignee: step.assignee, candidateGroups: step.candidateGroups,
-      formKey: step.formKey, dueDate: step.dueDate,
+      jobType: step.jobType,
+      retries: step.retries,
+      assignee: step.assignee,
+      candidateGroups: step.candidateGroups,
+      formKey: step.formKey,
+      dueDate: step.dueDate
     });
 
-    // Close previous YES branch — connect gateway YES to this task
-    if (pendingYes) {
-      flows.push({ id: pendingYes.yesFlowId, from: pendingYes.gwId, to: taskId, name: 'Có', condition: 'Có' });
-      pendingYes = null;
+    if (state.openExclusive) {
+      flows.push({ id: state.openExclusive.yesFlowId, from: state.openExclusive.gatewayId, to: taskId, name: 'Có', condition: 'Có', isDefault: true });
+      state.openExclusive = null;
     } else {
-      // Normal flow from previous node
       flows.push({ id: uid('Flow'), from: prevId, to: taskId });
     }
 
-    if (gwType && cond) {
-      const gwId  = uid('GW');
-      const label = cond.endsWith('?') ? cond : cond + '?';
-      nodes.push({ id: gwId, type: gwType, name: label, actor });
-      flows.push({ id: uid('Flow'), from: taskId, to: gwId });
+    prevId = taskId;
+  }
 
-      // NO branch → reject end
-      const noEndId = uid('End');
-      nodes.push({ id: noEndId, type: 'endEvent', name: 'Kết thúc (từ chối)', actor, branchType: 'reject', gatewayRef: gwId });
-      flows.push({ id: uid('Flow'), from: gwId, to: noEndId, name: 'Không', condition: 'Không' });
-
-      pendingYes = { gwId, yesFlowId: uid('Flow') };
-      prevId = gwId;
-    } else {
-      prevId = taskId;
-    }
-  });
-
-  // Main terminate end event
-  const lastActor = steps.length > 0 ? ((steps[steps.length-1].actor||'').trim() || firstActor) : firstActor;
+  const finalActor = steps.length ? ((steps[steps.length - 1].actor || '').trim() || firstActor) : firstActor;
   const endId = uid('End');
-  nodes.push({ id: endId, type: 'endEvent', name: 'Kết thúc', actor: lastActor });
+  nodes.push({ id: endId, type: 'endEvent', name: 'Kết thúc', actor: finalActor });
 
-  if (pendingYes) {
-    flows.push({ id: pendingYes.yesFlowId, from: pendingYes.gwId, to: endId, name: 'Có', condition: 'Có' });
+  if (state.openExclusive) {
+    flows.push({ id: state.openExclusive.yesFlowId, from: state.openExclusive.gatewayId, to: endId, name: 'Có', condition: 'Có', isDefault: true });
   } else {
     flows.push({ id: uid('Flow'), from: prevId, to: endId });
   }
@@ -120,236 +320,281 @@ function buildFlow(steps, actors) {
   return { nodes, flows };
 }
 
-// ── Semantic XML (no DI) ─────────────────────────────────────────────────────
-function buildSemanticXml(title, steps, actors) {
-  const processId = uid('Process');
-  const { nodes, flows } = buildFlow(steps, actors);
+function assignPositions(nodes, flows, actors, isSoloLane) {
+  const baseLaneHeight = isSoloLane ? LANE_H_SOLO : LANE_H;
+  const startX = POOL_X + POOL_LABEL_W + (isSoloLane ? 0 : LANE_LABEL_W) + GAP_X;
+  let currentX = startX;
+  let branchMaxX = 0;
+  const positions = {};
+  const flowSourceByTarget = {};
+  const rejectPerLane = {};
+  const laneHeights = {};
+  const laneTop = {};
 
-  const laneIds = {};
-  actors.forEach(a => { laneIds[a] = uid('Lane'); });
+  flows.forEach(flow => {
+    flowSourceByTarget[flow.to] = flow.from;
+  });
 
-  const laneSetId = uid('LaneSet');
-  const laneSetXml = `  <bpmn:laneSet id="${laneSetId}">\n` + actors.map(actor => {
-    const refs = nodes.filter(n => n.actor === actor)
-      .map(n => `      <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
-    return `    <bpmn:lane id="${laneIds[actor]}" name="${esc(actor)}">\n${refs}\n    </bpmn:lane>`;
-  }).join('\n') + `\n  </bpmn:laneSet>`;
+  actors.forEach(actor => {
+    rejectPerLane[actor] = 0;
+  });
 
-  const nodeXml = nodes.map(n => {
-    const name = n.name ? ` name="${esc(n.name)}"` : '';
-    const ext  = buildZeebeExtensions(n);
-    if (n.type === 'startEvent') return `  <bpmn:startEvent id="${n.id}"${name} />`;
-    if (n.type === 'endEvent') return `  <bpmn:endEvent id="${n.id}"${name} />`;
-    if (n.type === 'exclusiveGateway') return `  <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
-    if (n.type === 'parallelGateway')  return `  <bpmn:parallelGateway id="${n.id}"${name} />`;
-    if (n.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${n.id}"${name} />`;
-    if (n.type === 'eventBasedGateway') return `  <bpmn:eventBasedGateway id="${n.id}"${name} />`;
-    if (n.type === 'intermediateCatchEvent' || n.type === 'intermediateThrowEvent') {
-      const evtDefMap = {
-        timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
-        message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
-        error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
-        signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
-        conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
-      };
-      const evtDef = evtDefMap[n.eventType] || '';
-      if (evtDef) return `  <bpmn:${n.type} id="${n.id}"${name}>\n    ${evtDef}\n  </bpmn:${n.type}>`;
+  nodes.forEach(node => {
+    if (node.isReject && node.actor && rejectPerLane[node.actor] !== undefined) {
+      rejectPerLane[node.actor]++;
     }
-    if (ext) return `  <bpmn:${n.type} id="${n.id}"${name}>${ext}\n  </bpmn:${n.type}>`;
-    return `  <bpmn:${n.type} id="${n.id}"${name} />`;
-  }).join('\n');
+  });
 
-  const flowXml = flows.map(f => {
-    const name = f.name ? ` name="${esc(f.name)}"` : '';
-    if (f.condition) {
-      return `  <bpmn:sequenceFlow id="${f.id}"${name} sourceRef="${f.from}" targetRef="${f.to}">\n    <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${esc(f.condition)}</bpmn:conditionExpression>\n  </bpmn:sequenceFlow>`;
+  actors.forEach(actor => {
+    laneHeights[actor] = rejectPerLane[actor] > 0 ? baseLaneHeight + REJECT_OFFSET_Y : baseLaneHeight;
+  });
+
+  let accumulatedY = TOP_Y;
+  actors.forEach(actor => {
+    laneTop[actor] = accumulatedY;
+    accumulatedY += laneHeights[actor];
+  });
+
+  nodes.forEach(node => {
+    const actor = node.actor || actors[0];
+    const laneStart = laneTop[actor] ?? TOP_Y;
+    const laneHeight = laneHeights[actor] ?? baseLaneHeight;
+    const { w, h } = elSize(node.type);
+    const centerY = rejectPerLane[actor] > 0
+      ? laneStart + Math.round(baseLaneHeight / 2)
+      : laneStart + Math.round(laneHeight / 2);
+    const rejectRowY = laneStart + baseLaneHeight + 10;
+
+    if (node.isReject && node.type !== 'endEvent') {
+      const gatewayPos = node.gatewayRef ? positions[node.gatewayRef] : null;
+      const x = gatewayPos ? Math.round(gatewayPos.cx - w / 2) : currentX;
+      positions[node.id] = { x, y: rejectRowY, w, h, cx: x + Math.round(w / 2), cy: rejectRowY + Math.round(h / 2) };
+      return;
     }
-    return `  <bpmn:sequenceFlow id="${f.id}"${name} sourceRef="${f.from}" targetRef="${f.to}" />`;
-  }).join('\n');
 
+    if (node.isReject && node.type === 'endEvent') {
+      const srcId = flowSourceByTarget[node.id];
+      const srcPos = srcId ? positions[srcId] : null;
+      if (srcPos) {
+        const x = srcPos.x + srcPos.w + 30;
+        const y = Math.round(srcPos.cy - h / 2);
+        positions[node.id] = { x, y, w, h, cx: x + Math.round(w / 2), cy: srcPos.cy };
+      } else {
+        positions[node.id] = { x: currentX, y: rejectRowY, w, h, cx: currentX + Math.round(w / 2), cy: rejectRowY + Math.round(h / 2) };
+      }
+      return;
+    }
+
+    if (node.isBranch) {
+      const x = currentX;
+      const y = Math.round(centerY - h / 2);
+      positions[node.id] = { x, y, w, h, cx: x + Math.round(w / 2), cy: centerY };
+      branchMaxX = Math.max(branchMaxX, x + w);
+      return;
+    }
+
+    if (node.isJoin) {
+      const x = Math.max(currentX, branchMaxX + GAP_X);
+      const y = Math.round(centerY - h / 2);
+      positions[node.id] = { x, y, w, h, cx: x + Math.round(w / 2), cy: centerY };
+      currentX = x + w + GAP_X;
+      branchMaxX = 0;
+      return;
+    }
+
+    const x = currentX;
+    const y = Math.round(centerY - h / 2);
+    positions[node.id] = { x, y, w, h, cx: x + Math.round(w / 2), cy: centerY };
+    currentX += w + GAP_X;
+  });
+
+  const bounds = Object.values(positions);
+  const maxRight = bounds.length ? Math.max(...bounds.map(pos => pos.x + pos.w)) : startX + 200;
   return {
-    xml: `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="${processId}" name="${esc(title)}" isExecutable="false">
-${laneSetXml}
-${nodeXml}
-${flowXml}
-  </bpmn:process>
-</bpmn:definitions>`,
-    nodes, flows, laneIds, processId,
+    positions,
+    laneTop,
+    laneHeights,
+    totalWidth: maxRight - POOL_X + 90,
+    totalHeight: accumulatedY - TOP_Y
   };
 }
 
-// ── Parse bounds from auto-layout XML ───────────────────────────────────────
-function parseBoundsFromXml(xml) {
-  const bounds = {};
-  const re = /bpmnElement="([^"]+)"[^>]*>\s*<dc:Bounds([^/]*?)\/>/g;
-  let m;
-  while ((m = re.exec(xml)) !== null) {
-    const id = m[1], a = m[2];
-    const x = parseFloat(a.match(/x="([^"]+)"/)?.[1]||'0');
-    const y = parseFloat(a.match(/y="([^"]+)"/)?.[1]||'0');
-    const w = parseFloat(a.match(/width="([^"]+)"/)?.[1]||'100');
-    const h = parseFloat(a.match(/height="([^"]+)"/)?.[1]||'80');
-    if (!isNaN(x) && !isNaN(y)) bounds[id] = {x,y,w,h};
+function edgeWaypoints(sourcePos, targetPos, sourceNode, targetNode) {
+  if (!sourcePos || !targetPos) return [[0, 0], [100, 0]];
+  const sameLane = Math.abs(sourcePos.cy - targetPos.cy) <= 5;
+  const sourceIsGateway = sourceNode.type.includes('Gateway');
+
+  if (targetNode.isReject && sourceIsGateway) {
+    return [[sourcePos.cx, sourcePos.y + sourcePos.h], [sourcePos.cx, targetPos.y]];
   }
-  return bounds;
+
+  if (targetNode.isReject && !sourceIsGateway) {
+    return [[sourcePos.x + sourcePos.w, sourcePos.cy], [targetPos.x, targetPos.cy]];
+  }
+
+  if (sameLane) {
+    return [[sourcePos.x + sourcePos.w, sourcePos.cy], [targetPos.x, targetPos.cy]];
+  }
+
+  if (sourceIsGateway) {
+    if (targetPos.cy > sourcePos.cy) {
+      return [[sourcePos.cx, sourcePos.y + sourcePos.h], [sourcePos.cx, targetPos.cy], [targetPos.x, targetPos.cy]];
+    }
+    return [[sourcePos.cx, sourcePos.y], [sourcePos.cx, targetPos.cy], [targetPos.x, targetPos.cy]];
+  }
+
+  const midX = Math.round((sourcePos.x + sourcePos.w + targetPos.x) / 2);
+  return [
+    [sourcePos.x + sourcePos.w, sourcePos.cy],
+    [midX, sourcePos.cy],
+    [midX, targetPos.cy],
+    [targetPos.x, targetPos.cy]
+  ];
 }
 
-// ── Build horizontal DI ──────────────────────────────────────────────────────
-function buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors) {
-  const autoPos = parseBoundsFromXml(layoutedXml);
-  const PART_LABEL_W = 30, LANE_LABEL_W = 30, LANE_H = 140;
-  const START_X = 160, START_Y = 60, H_GAP = 120;
-
-  // Sort by auto-layout Y order
-  const sorted = nodes.map(n => ({ ...n, autoY: autoPos[n.id]?.y || 0, autoX: autoPos[n.id]?.x || 0 }))
-    .sort((a,b) => a.autoY - b.autoY || a.autoX - b.autoX);
-
-  const COL_X0 = START_X + PART_LABEL_W + LANE_LABEL_W + 50;
-  let curX = COL_X0;
-  const colMap = {};
-  sorted.forEach(n => {
-    const {w} = elSize(n.type);
-    colMap[n.id] = curX + w/2;
-    curX += w + H_GAP;
-  });
-
-  const totalW  = curX - START_X + 20;
-  const laneYMap = {};
-  actors.forEach((a,i) => { laneYMap[a] = START_Y + i * LANE_H; });
-  const totalH = actors.length * LANE_H;
-  const posById = {};
-
+function buildBpmnDi(nodes, flows, actors) {
+  const isSoloLane = actors.length === 1;
+  const { positions, laneTop, laneHeights, totalWidth, totalHeight } = assignPositions(nodes, flows, actors, isSoloLane);
+  const nodeById = Object.fromEntries(nodes.map(node => [node.id, node]));
   const participantId = uid('Participant');
-  let di = '';
+  let shapes = '';
+  let edges = '';
 
-  // Pool
-  di += `      <bpmndi:BPMNShape id="${participantId}_di" bpmnElement="${participantId}" isHorizontal="true">\n        <dc:Bounds x="${START_X - PART_LABEL_W}" y="${START_Y - 10}" width="${totalW + PART_LABEL_W}" height="${totalH + 20}" />\n      </bpmndi:BPMNShape>\n`;
+  shapes += `      <bpmndi:BPMNShape id="${participantId}_di" bpmnElement="${participantId}" isHorizontal="true">\n        <dc:Bounds x="${POOL_X}" y="${TOP_Y}" width="${totalWidth}" height="${totalHeight}" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n`;
 
-  // Lanes
-  Object.entries(laneIds).forEach(([actor, laneId]) => {
-    const ly = laneYMap[actor] || START_Y;
-    di += `      <bpmndi:BPMNShape id="${laneId}_di" bpmnElement="${laneId}" isHorizontal="true">\n        <dc:Bounds x="${START_X}" y="${ly}" width="${totalW}" height="${LANE_H}" />\n      </bpmndi:BPMNShape>\n`;
+  if (!isSoloLane) {
+    actors.forEach(actor => {
+      const laneId = nodeById[`lane:${actor}`]?.id;
+      const y = laneTop[actor];
+      const height = laneHeights[actor];
+      if (!laneId) return;
+      shapes += `      <bpmndi:BPMNShape id="${laneId}_di" bpmnElement="${laneId}" isHorizontal="true">\n        <dc:Bounds x="${POOL_X + POOL_LABEL_W}" y="${y}" width="${totalWidth - POOL_LABEL_W}" height="${height}" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n`;
+    });
+  }
+
+  nodes.forEach(node => {
+    if (!positions[node.id]) return;
+    const pos = positions[node.id];
+    const gatewayAttr = node.type === 'exclusiveGateway' ? ' isMarkerVisible="true"' : '';
+    let label = '';
+    if (node.name) {
+      const labelWidth = Math.min(Math.max(node.name.length * 7, 54), 170);
+      const labelHeight = node.type.includes('Gateway') ? 28 : 18;
+      const labelX = node.type.includes('Event') ? pos.x - 10 : node.type.includes('Gateway') ? pos.x - 12 : pos.x;
+      const labelY = pos.y + pos.h + 6;
+      label = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}" />\n        </bpmndi:BPMNLabel>`;
+    }
+    shapes += `      <bpmndi:BPMNShape id="${node.id}_di" bpmnElement="${node.id}"${gatewayAttr}>\n        <dc:Bounds x="${pos.x}" y="${pos.y}" width="${pos.w}" height="${pos.h}" />${label}\n      </bpmndi:BPMNShape>\n`;
   });
 
-  // Elements
-  nodes.forEach(n => {
-    let cx = colMap[n.id] || (COL_X0 + 50);
-    const ly = laneYMap[n.actor || actors[0]] || START_Y;
-    const {w,h} = elSize(n.type);
-    let x = Math.round(cx - w/2);
-    let y = Math.round(ly + LANE_H/2 - h/2);
+  flows.forEach(flow => {
+    const sourceNode = nodeById[flow.from];
+    const targetNode = nodeById[flow.to];
+    const sourcePos = positions[flow.from];
+    const targetPos = positions[flow.to];
+    if (!sourceNode || !targetNode || !sourcePos || !targetPos) return;
+    const points = edgeWaypoints(sourcePos, targetPos, sourceNode, targetNode);
+    const waypointXml = points.map(([x, y]) => `        <di:waypoint x="${x}" y="${y}" />`).join('\n');
 
-    if (n.branchType === 'reject' && n.gatewayRef && colMap[n.gatewayRef]) {
-      cx = colMap[n.gatewayRef];
-      x = Math.round(cx - w / 2);
-      y = Math.round(ly + LANE_H - h - 18);
+    let label = '';
+    if (flow.name) {
+      const labelWidth = Math.min(Math.max(flow.name.length * 7, 40), 120);
+      const isVertical = points.length === 2 && Math.abs(points[0][0] - points[1][0]) <= 2;
+      const labelX = isVertical
+        ? points[0][0] - labelWidth - 6
+        : Math.round((points[0][0] + points[1][0]) / 2) - Math.round(labelWidth / 2);
+      const labelY = isVertical
+        ? Math.round((points[0][1] + points[1][1]) / 2) - 7
+        : Math.min(points[0][1], points[1][1]) - 18;
+      label = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${labelX}" y="${labelY}" width="${labelWidth}" height="14" />\n        </bpmndi:BPMNLabel>`;
     }
 
-    posById[n.id] = { x, y, w, h, cx: Math.round(x + w / 2), cy: Math.round(y + h / 2) };
-
-    if (n.type === 'exclusiveGateway') {
-      di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}" isMarkerVisible="true">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n`;
-    } else if (n.type.includes('Event')) {
-      di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${x-10}" y="${y+h+4}" width="${w+20}" height="14" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n`;
-    } else {
-      di += `      <bpmndi:BPMNShape id="${n.id}_di" bpmnElement="${n.id}">\n        <dc:Bounds x="${x}" y="${y}" width="${w}" height="${h}" />\n      </bpmndi:BPMNShape>\n`;
-    }
+    edges += `      <bpmndi:BPMNEdge id="${flow.id}_di" bpmnElement="${flow.id}">\n${waypointXml}${label}\n      </bpmndi:BPMNEdge>\n`;
   });
 
-  // Edges
-  const nodeById = Object.fromEntries(nodes.map(n => [n.id,n]));
-  flows.forEach(f => {
-    const src = nodeById[f.from], tgt = nodeById[f.to];
-    if (!src || !tgt) return;
-    const srcPos = posById[f.from];
-    const tgtPos = posById[f.to];
-    const srcY = srcPos ? srcPos.cy : (laneYMap[src.actor || actors[0]] || START_Y) + LANE_H / 2;
-    const tgtY = tgtPos ? tgtPos.cy : (laneYMap[tgt.actor || actors[0]] || START_Y) + LANE_H / 2;
-    const srcCX = srcPos ? srcPos.cx : (colMap[f.from] || 0);
-    const tgtCX = tgtPos ? tgtPos.cx : (colMap[f.to] || 0);
-    const srcR = srcPos ? Math.round(srcPos.x + srcPos.w) : Math.round(srcCX + elSize(src.type).w / 2);
-    const tgtL = tgtPos ? Math.round(tgtPos.x) : Math.round(tgtCX - elSize(tgt.type).w / 2);
-
-    let wp;
-    if (f.condition === 'Không' && tgt.branchType === 'reject' && srcPos && tgtPos) {
-      const srcBottomY = Math.round(srcPos.y + srcPos.h);
-      const tgtTopY = Math.round(tgtPos.y);
-      const branchX = Math.round(srcPos.cx);
-      wp = `        <di:waypoint x="${branchX}" y="${srcBottomY}" />\n        <di:waypoint x="${branchX}" y="${tgtTopY}" />`;
-    } else if (Math.abs(srcY - tgtY) < 5) {
-      wp = `        <di:waypoint x="${srcR}" y="${Math.round(srcY)}" />\n        <di:waypoint x="${tgtL}" y="${Math.round(srcY)}" />`;
-    } else {
-      const midX = Math.round((srcR + tgtL) / 2);
-      wp = `        <di:waypoint x="${srcR}" y="${Math.round(srcY)}" />\n        <di:waypoint x="${midX}" y="${Math.round(srcY)}" />\n        <di:waypoint x="${midX}" y="${Math.round(tgtY)}" />\n        <di:waypoint x="${tgtL}" y="${Math.round(tgtY)}" />`;
-    }
-
-    const lbl = f.name ? `\n        <bpmndi:BPMNLabel><dc:Bounds x="${Math.round((srcR+tgtL)/2-15)}" y="${Math.round((srcY+tgtY)/2-7)}" width="30" height="14" /></bpmndi:BPMNLabel>` : '';
-    di += `      <bpmndi:BPMNEdge id="${f.id}_di" bpmnElement="${f.id}">\n${wp}${lbl}\n      </bpmndi:BPMNEdge>\n`;
-  });
-
-  return { di, participantId };
+  return { participantId, shapes, edges };
 }
 
-// ── Main generate ────────────────────────────────────────────────────────────
+function buildLaneXml(nodes, actors, laneIds) {
+  return `  <bpmn:laneSet id="${uid('LaneSet')}">\n${actors.map(actor => {
+    const refs = nodes
+      .filter(node => node.actor === actor)
+      .map(node => `      <bpmn:flowNodeRef>${node.id}</bpmn:flowNodeRef>`)
+      .join('\n');
+    return `    <bpmn:lane id="${laneIds[actor]}" name="${esc(actor)}">\n${refs}\n    </bpmn:lane>`;
+  }).join('\n')}\n  </bpmn:laneSet>`;
+}
+
+function buildNodeXml(node) {
+  const name = node.name ? ` name="${esc(node.name)}"` : '';
+  const ext = buildZeebeExtensions(node);
+  if (node.type === 'startEvent') return `  <bpmn:startEvent id="${node.id}"${name} />`;
+  if (node.type === 'endEvent') return `  <bpmn:endEvent id="${node.id}"${name} />`;
+  if (node.type === 'exclusiveGateway') {
+    const defaultAttr = node.defaultFlowId ? ` default="${node.defaultFlowId}"` : '';
+    return `  <bpmn:exclusiveGateway id="${node.id}"${name} isMarkerVisible="true"${defaultAttr} />`;
+  }
+  if (node.type === 'parallelGateway') return `  <bpmn:parallelGateway id="${node.id}"${name} />`;
+  if (node.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${node.id}"${name} />`;
+  if (node.type === 'eventBasedGateway') return `  <bpmn:eventBasedGateway id="${node.id}"${name} />`;
+  if (node.type === 'intermediateCatchEvent' || node.type === 'intermediateThrowEvent') {
+    const definitions = {
+      timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
+      message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
+      error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
+      signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
+      conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
+    };
+    const eventDefinition = definitions[node.eventType] || '';
+    if (eventDefinition) {
+      return `  <bpmn:${node.type} id="${node.id}"${name}>\n    ${eventDefinition}\n  </bpmn:${node.type}>`;
+    }
+  }
+  if (ext) return `  <bpmn:${node.type} id="${node.id}"${name}>${ext}\n  </bpmn:${node.type}>`;
+  return `  <bpmn:${node.type} id="${node.id}"${name} />`;
+}
+
+function buildFlowXml(flow, nodeById) {
+  const name = flow.name ? ` name="${esc(flow.name)}"` : '';
+  const sourceNode = nodeById[flow.from];
+  const needsCondition = flow.condition && sourceNode?.type === 'exclusiveGateway' && !flow.isDefault;
+  if (needsCondition) {
+    return `  <bpmn:sequenceFlow id="${flow.id}"${name} sourceRef="${flow.from}" targetRef="${flow.to}">\n    <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${esc(flow.condition)}</bpmn:conditionExpression>\n  </bpmn:sequenceFlow>`;
+  }
+  return `  <bpmn:sequenceFlow id="${flow.id}"${name} sourceRef="${flow.from}" targetRef="${flow.to}" />`;
+}
+
 async function generateBpmn({ title, steps }) {
   resetIds();
-  const actorOrder = [];
-  steps.forEach(s => { const a=(s.actor||'').trim()||'Hệ thống'; if(!actorOrder.includes(a)) actorOrder.push(a); });
-  const actors = actorOrder.length > 0 ? actorOrder : ['System'];
+  const safeSteps = Array.isArray(steps) ? steps : [];
+  const normalizedSteps = safeSteps.length ? safeSteps : [
+    { actor: 'Người dùng', action: title || 'Khởi tạo quy trình', type: 'userTask' },
+    { actor: 'Hệ thống', action: 'Xử lý yêu cầu', type: 'serviceTask' }
+  ];
 
-  const { xml: semXml, nodes, flows, laneIds, processId } = buildSemanticXml(title, steps, actors);
+  const actors = [];
+  normalizedSteps.forEach(step => {
+    const actor = (step.actor || '').trim() || 'Hệ thống';
+    if (!actors.includes(actor)) actors.push(actor);
+  });
 
-  let layoutedXml = semXml;
-  try { layoutedXml = await layoutProcess(semXml); } catch(e) { /* fallback */ }
+  const laneIds = {};
+  actors.forEach(actor => {
+    laneIds[actor] = uid('Lane');
+  });
 
-  const { di, participantId } = buildHorizontalDI(layoutedXml, nodes, flows, laneIds, actors);
+  const { nodes, flows } = buildFlow(normalizedSteps, actors);
+  const nodeById = Object.fromEntries(nodes.map(node => [node.id, node]));
+  actors.forEach(actor => {
+    nodeById[`lane:${actor}`] = { id: laneIds[actor] };
+  });
 
-  const collabId  = uid('Collab');
-  const laneSetId = uid('LaneSet');
-
-  const collabXml = `  <bpmn:collaboration id="${collabId}">\n    <bpmn:participant id="${participantId}" name="${esc(title)}" processRef="${processId}" />\n  </bpmn:collaboration>`;
-
-  const laneSetXml = `  <bpmn:laneSet id="${laneSetId}">\n` + actors.map(actor => {
-    const laneId = laneIds[actor] || uid('Lane');
-    laneIds[actor] = laneId;
-    const refs = nodes.filter(n => n.actor === actor)
-      .map(n => `      <bpmn:flowNodeRef>${n.id}</bpmn:flowNodeRef>`).join('\n');
-    return `    <bpmn:lane id="${laneId}" name="${esc(actor)}">\n${refs}\n    </bpmn:lane>`;
-  }).join('\n') + `\n  </bpmn:laneSet>`;
-
-  const tasksXml = nodes.map(n => {
-    const name = n.name ? ` name="${esc(n.name)}"` : '';
-    const ext  = buildZeebeExtensions(n);
-    if (n.type === 'startEvent') return `  <bpmn:startEvent id="${n.id}"${name} />`;
-    if (n.type === 'endEvent') return `  <bpmn:endEvent id="${n.id}"${name} />`;
-    if (n.type === 'exclusiveGateway') return `  <bpmn:exclusiveGateway id="${n.id}"${name} isMarkerVisible="true" />`;
-    if (n.type === 'parallelGateway')  return `  <bpmn:parallelGateway id="${n.id}"${name} />`;
-    if (n.type === 'inclusiveGateway') return `  <bpmn:inclusiveGateway id="${n.id}"${name} />`;
-    if (n.type === 'eventBasedGateway') return `  <bpmn:eventBasedGateway id="${n.id}"${name} />`;
-    if (n.type === 'intermediateCatchEvent' || n.type === 'intermediateThrowEvent') {
-      const evtDefMap = {
-        timer: `<bpmn:timerEventDefinition id="${uid('ED')}" />`,
-        message: `<bpmn:messageEventDefinition id="${uid('ED')}" />`,
-        error: `<bpmn:errorEventDefinition id="${uid('ED')}" />`,
-        signal: `<bpmn:signalEventDefinition id="${uid('ED')}" />`,
-        conditional: `<bpmn:conditionalEventDefinition id="${uid('ED')}" />`
-      };
-      const evtDef = evtDefMap[n.eventType] || '';
-      if (evtDef) return `  <bpmn:${n.type} id="${n.id}"${name}>\n    ${evtDef}\n  </bpmn:${n.type}>`;
-    }
-    if (ext) return `  <bpmn:${n.type} id="${n.id}"${name}>${ext}\n  </bpmn:${n.type}>`;
-    return `  <bpmn:${n.type} id="${n.id}"${name} />`;
-  }).join('\n');
-
-  const flowsXml = flows.map(f => {
-    const name = f.name ? ` name="${esc(f.name)}"` : '';
-    if (f.condition) {
-      return `  <bpmn:sequenceFlow id="${f.id}"${name} sourceRef="${f.from}" targetRef="${f.to}">\n    <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${esc(f.condition)}</bpmn:conditionExpression>\n  </bpmn:sequenceFlow>`;
-    }
-    return `  <bpmn:sequenceFlow id="${f.id}"${name} sourceRef="${f.from}" targetRef="${f.to}" />`;
-  }).join('\n');
+  const { participantId, shapes, edges } = buildBpmnDi(nodes, flows, actors);
+  const processId = uid('Process');
+  const collaborationId = uid('Collab');
+  const laneXml = buildLaneXml(nodes, actors, laneIds);
+  const nodeXml = nodes.map(buildNodeXml).join('\n');
+  const flowXml = flows.map(flow => buildFlowXml(flow, nodeById)).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions
@@ -363,50 +608,69 @@ async function generateBpmn({ title, steps }) {
   id="Definitions_1"
   targetNamespace="http://bpmn.io/schema/bpmn"
   exporter="BPMN Studio"
-  exporterVersion="5.0"
+  exporterVersion="6.0"
   modeler:executionPlatform="Camunda Cloud"
   modeler:executionPlatformVersion="8.6.0">
 
-${collabXml}
+  <bpmn:collaboration id="${collaborationId}">
+    <bpmn:participant id="${participantId}" name="${esc(title || 'Process')}" processRef="${processId}" />
+  </bpmn:collaboration>
 
-  <bpmn:process id="${processId}" name="${esc(title)}" isExecutable="false">
-${laneSetXml}
-${tasksXml}
-${flowsXml}
+  <bpmn:process id="${processId}" name="${esc(title || 'Process')}" isExecutable="false">
+${laneXml}
+${nodeXml}
+${flowXml}
   </bpmn:process>
 
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="${collabId}">
-${di}    </bpmndi:BPMNPlane>
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="${collaborationId}">
+${shapes}${edges}    </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
-
 </bpmn:definitions>`;
 }
 
-// ── Layout & Validate ────────────────────────────────────────────────────────
 async function importAndLayoutBpmn(xml) {
-  try { return { xml: await layoutProcess(xml), message: 'Layout applied' }; }
-  catch(err) { return { xml, message: 'Layout skipped: ' + err.message, warning: true }; }
+  try {
+    return { xml: await layoutProcess(xml), message: 'Layout applied' };
+  } catch (error) {
+    return { xml, message: `Layout skipped: ${error.message}`, warning: true };
+  }
 }
 
 async function validateBpmn(xml) {
   const issues = [];
-  if (!xml.includes('<bpmn:process') && !xml.includes('<process'))
-    issues.push({ severity:'error', message:'Missing <bpmn:process> element' });
-  if (!xml.includes('startEvent'))
-    issues.push({ severity:'error', message:'No Start Event — every process requires exactly one None Start Event' });
-  if (!xml.includes('endEvent'))
-    issues.push({ severity:'warning', message:'No End Event — every process path must terminate at an End Event' });
-  if (!xml.includes('bpmn:collaboration'))
-    issues.push({ severity:'warning', message:'No Pool/Participant — consider wrapping in a Collaboration for swimlane processes' });
-  const gwCount = (xml.match(/exclusiveGateway/g)||[]).length;
-  const condCount = (xml.match(/conditionExpression/g)||[]).length;
-  if (gwCount > 0 && condCount === 0)
-    issues.push({ severity:'warning', message:'Exclusive Gateway present but no conditionExpression on outgoing flows' });
-  const tasks = (xml.match(/<bpmn:(?:userTask|serviceTask)\b/gi)||[]).length;
-  if (tasks > 0 && !xml.includes('zeebe:'))
-    issues.push({ severity:'info', message:'No Zeebe extensions — add zeebe:taskDefinition / zeebe:assignment for Camunda 8 execution' });
-  return { valid: !issues.some(i=>i.severity==='error'), issues, message: issues.length===0?'Valid BPMN 2.0':'Has issues' };
+  const count = tag => (xml.match(new RegExp(`<(?:\\w+:)?${tag}\\b`, 'gi')) || []).length;
+  const exclusiveGatewayCount = count('exclusiveGateway');
+  const conditionalFlowCount = count('conditionExpression');
+  const defaultFlowCount = (xml.match(/\bdefault="/gi) || []).length;
+
+  if (!xml.includes('<bpmn:process') && !xml.includes('<process')) {
+    issues.push({ severity: 'error', message: 'Missing <bpmn:process> element' });
+  }
+  if (count('startEvent') === 0) {
+    issues.push({ severity: 'error', message: 'No Start Event — every process requires exactly one None Start Event' });
+  }
+  if (count('endEvent') === 0) {
+    issues.push({ severity: 'warning', message: 'No End Event — every process path should terminate at an End Event' });
+  }
+  if (!xml.includes('bpmn:collaboration')) {
+    issues.push({ severity: 'warning', message: 'No Pool/Participant — consider wrapping in a Collaboration for swimlane processes' });
+  }
+  if (exclusiveGatewayCount > 0 && conditionalFlowCount === 0) {
+    issues.push({ severity: 'warning', message: 'Exclusive Gateway present but no conditionExpression on outgoing flows' });
+  }
+  if (exclusiveGatewayCount > 0 && defaultFlowCount === 0) {
+    issues.push({ severity: 'info', message: 'Exclusive Gateway has no default flow — diagram is valid but can be harder to read in modelers' });
+  }
+  if ((count('userTask') + count('serviceTask')) > 0 && !xml.includes('zeebe:')) {
+    issues.push({ severity: 'info', message: 'No Zeebe extensions — add zeebe:taskDefinition / zeebe:assignment for Camunda 8 execution' });
+  }
+
+  return {
+    valid: !issues.some(issue => issue.severity === 'error'),
+    issues,
+    message: issues.length === 0 ? 'Valid BPMN 2.0' : 'Has issues'
+  };
 }
 
 module.exports = { generateBpmn, importAndLayoutBpmn, validateBpmn };

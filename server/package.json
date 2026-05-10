@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "mcp": "node --input-type=module mcp-server.js",
-    "studio": "start node server.js"
+    "studio": "start node server.js",
+    "test": "node test-regressions.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

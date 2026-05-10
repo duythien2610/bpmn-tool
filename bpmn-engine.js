@@ -15,19 +15,20 @@ const BpmnEngine = (() => {
     eventBasedGateway:'50,50',
   };
 
-  /* Build BPMN EventDefinition XML for events */
+  /* Build BPMN EventDefinition XML for events — id is REQUIRED by bpmn-js to render icons */
   function buildEventDef(eventType, duration) {
+    const eid = uid('EvDef');
     switch((eventType||'').toLowerCase()) {
       case 'timer':{
         const d=duration||'PT30M';
-        return `      <bpmn:timerEventDefinition>\n        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${d}</bpmn:timeDuration>\n      </bpmn:timerEventDefinition>`;
+        return `      <bpmn:timerEventDefinition id="${eid}">\n        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${d}</bpmn:timeDuration>\n      </bpmn:timerEventDefinition>`;
       }
-      case 'message':  return '      <bpmn:messageEventDefinition />';
-      case 'signal':   return '      <bpmn:signalEventDefinition />';
-      case 'error':    return '      <bpmn:errorEventDefinition />';
-      case 'escalation':return '      <bpmn:escalationEventDefinition />';
-      case 'termination':return '      <bpmn:terminateEventDefinition />';
-      case 'compensation':return '      <bpmn:compensateEventDefinition />';
+      case 'message':  return `      <bpmn:messageEventDefinition id="${eid}" />`;
+      case 'signal':   return `      <bpmn:signalEventDefinition id="${eid}" />`;
+      case 'error':    return `      <bpmn:errorEventDefinition id="${eid}" />`;
+      case 'escalation':return `      <bpmn:escalationEventDefinition id="${eid}" />`;
+      case 'termination':return `      <bpmn:terminateEventDefinition id="${eid}" />`;
+      case 'compensation':return `      <bpmn:compensateEventDefinition id="${eid}" />`;
       default: return '';
     }
   }
@@ -36,12 +37,24 @@ const BpmnEngine = (() => {
   const POOL_X=100, POOL_LBL=30, LANE_LBL=30;
   const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=55, REJ_DY=100;
 
-  const TMAP={task:'task',usertask:'userTask',servicetask:'serviceTask',sendtask:'sendTask',
+  const TMAP={
+    task:'task',usertask:'userTask',servicetask:'serviceTask',sendtask:'sendTask',
     receivetask:'receiveTask',manualtask:'manualTask',scripttask:'scriptTask',
     businessruletask:'businessRuleTask',callactivity:'callActivity',subprocess:'subProcess',
     user:'userTask',service:'serviceTask',send:'sendTask',manual:'manualTask',
-    receive:'receiveTask',script:'scriptTask',rule:'businessRuleTask',call:'callActivity'};
-  const rtype = t => TMAP[(t||'task').toLowerCase().replace(/[-_ ]/g,'')] || 'task';
+    receive:'receiveTask',script:'scriptTask',rule:'businessRuleTask',call:'callActivity',
+    // Events
+    startevent:'startEvent',endevent:'endEvent',
+    intermediatecatchevent:'intermediateCatchEvent',
+    intermediatethrowevent:'intermediateThrowEvent',
+    // Gateways
+    exclusivegateway:'exclusiveGateway',parallelgateway:'parallelGateway',
+    inclusivegateway:'inclusiveGateway',eventbasedgateway:'eventBasedGateway',
+  };
+  const rtype = t => {
+    const key = (t||'task').toLowerCase().replace(/[-_ ]/g,'');
+    return TMAP[key] || t || 'task'; // preserve unknown types instead of defaulting to 'task'
+  };
 
   function xorLabel(c1, c2) {
     const neg=/\b(kh[oô]ng|ch[uư]a|not|invalid|chưa)\b/gi;

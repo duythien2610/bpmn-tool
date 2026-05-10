@@ -186,6 +186,7 @@
                 <button class="chip" data-example="leave">🏖 Xin nghỉ phép</button>
                 <button class="chip" data-example="invoice">🧾 Phê duyệt hóa đơn</button>
                 <button class="chip" data-example="procurement">📦 Mua sắm (AND Gateway)</button>
+                <button class="chip" data-example="handoff">🔁 Multi-lane handoff</button>
               </div>
             </div>
 
@@ -333,6 +334,28 @@ Khách hàng nhận hàng và xác nhận."></textarea>
       <div class="logic-summary-hint" id="logic-lane-hint">Nhập mô tả để bắt đầu.</div>
     </div>
 
+    <div class="logic-review-grid">
+      <section class="logic-review-card">
+        <div class="logic-review-card-head">
+          <strong>Parse Review</strong>
+          <span id="parse-review-badge">0 cảnh báo</span>
+        </div>
+        <div id="parse-review-list" class="logic-review-list">
+          <div class="logic-review-empty">Chưa có cảnh báo parse.</div>
+        </div>
+      </section>
+
+      <section class="logic-review-card">
+        <div class="logic-review-card-head">
+          <strong>BA Checklist</strong>
+          <span id="ba-checklist-badge">6 tiêu chí</span>
+        </div>
+        <div id="ba-checklist-list" class="logic-review-list">
+          <div class="logic-review-empty">Checklist sẽ xuất hiện sau khi có step.</div>
+        </div>
+      </section>
+    </div>
+
     <!-- Table -->
     <div class="logic-table-wrap">
       <table class="logic-table" id="logic-table">
@@ -344,6 +367,11 @@ Khách hàng nhận hàng và xác nhận."></textarea>
             <th style="width:130px">Task Type</th>
             <th style="width:140px">Condition (if any)</th>
             <th style="width:110px">Gateway Type</th>
+            <th style="width:220px">Source Sentence</th>
+            <th style="width:110px">BPMN Node ID</th>
+            <th style="width:160px">BA Note</th>
+            <th style="width:120px">BR Ref</th>
+            <th style="width:140px">Requirement / Story</th>
             <th style="width:40px"></th>
           </tr>
         </thead>
@@ -769,6 +797,12 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           </svg>
           Lưu
         </button>
+        <button class="btn btn-outline" id="btn-export-ba-brief" title="Export BA summary, traceability and checklist">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M3 2.5h7l2 2v8H3v-10ZM5 6.5h5M5 8.8h5M5 11.1h3.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Export BA Brief
+        </button>
         <button class="btn btn-success" id="btn-download">
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
             <path d="M2 13h11M7.5 2v8M5 7.5l2.5 2.5 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -815,6 +849,18 @@ Khách hàng nhận hàng và xác nhận."></textarea>
   </div>
 </aside>
 
+<!-- ── COMPARE MODAL ─────────────────────────────────────────────── -->
+<div class="analyze-modal-overlay hidden" id="compare-overlay"></div>
+<div class="analyze-modal hidden" id="compare-modal">
+  <div class="analyze-modal-header">
+    <span>🔀 AS-IS / TO-BE Compare</span>
+    <button class="btn-icon" id="btn-close-compare" style="width:24px;height:24px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="analyze-modal-body" id="compare-modal-body">Loading...</div>
+</div>
+
 <!-- ── ANALYZE MODAL ─────────────────────────────────────────────── -->
 <div class="analyze-modal-overlay hidden" id="analyze-overlay" onclick="document.getElementById('analyze-overlay').classList.add('hidden')"></div>
 <div class="analyze-modal hidden" id="analyze-modal">
@@ -830,6 +876,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
 <!-- ── SCRIPTS ──────────────────────────────────────────────────── -->
 <script src="https://unpkg.com/bpmn-js@18.14.0/dist/bpmn-modeler.production.min.js"></script>
 <script src="bpmn-engine.js"></script>
+<script src="ba-tools.js"></script>
 <script src="designer.js"></script>
 
 <!-- ── FORMAT GUIDE MODAL ─────────────────────────────────────── -->

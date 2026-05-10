@@ -65,6 +65,14 @@ const EXAMPLES = {
 9. If goods meet specifications: Warehouse Staff: Confirm receipt in system
 10. Accountant: Process payment to supplier
 11. System: Update inventory and archive documents`
+  },
+  handoff: {
+    title: 'Multi-lane Handoff Process',
+    desc: `1. Receptionist: Receive submitted dossier
+2. Processing Dept: Verify dossier completeness
+3. Legal: Review compliance requirements
+4. Manager: Approve processing result
+5. System: Notify applicant about the result`
   }
 };
 
@@ -103,6 +111,10 @@ const state = {
   desc: '',
   steps: [],
   xml: '',
+  review: {
+    warnings: [],
+    checklist: [],
+  },
   viewer: null,
   assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') !== '0',
   focusMode: false,
@@ -150,6 +162,61 @@ function renderDiagramInsights(steps) {
   bar.classList.toggle('hidden', stats.taskCount === 0);
   lanes.textContent = `${stats.laneCount} lane${stats.laneCount === 1 ? '' : 's'}`;
   tasks.textContent = `${stats.taskCount} step${stats.taskCount === 1 ? '' : 's'}`;
+}
+
+function computeBaReview(steps = state.steps, xml = state.xml) {
+  const tracedSteps = BATools.enrichStepsWithTraceability(state.desc, steps);
+  const warnings = BATools.buildParseWarnings(state.desc, tracedSteps);
+  const checklist = BATools.buildBaChecklist(tracedSteps, xml);
+  state.steps = tracedSteps;
+  state.review = { warnings, checklist };
+  return state.review;
+}
+
+function renderParseReview() {
+  const list = document.getElementById('parse-review-list');
+  const badge = document.getElementById('parse-review-badge');
+  if (!list || !badge) return;
+
+  const warnings = state.review.warnings || [];
+  badge.textContent = `${warnings.length} cảnh báo`;
+  if (warnings.length === 0) {
+    list.innerHTML = '<div class="logic-review-empty">Parse hiện chưa phát hiện điểm mơ hồ lớn.</div>';
+    return;
+  }
+
+  list.innerHTML = warnings.map(item => `
+    <article class="logic-review-item logic-review-item--warning">
+      <span class="logic-review-label">${esc(item.type || 'review')}</span>
+      <div class="logic-review-main">${escHtml(item.message)}</div>
+    </article>
+  `).join('');
+}
+
+function renderBaChecklist() {
+  const list = document.getElementById('ba-checklist-list');
+  const badge = document.getElementById('ba-checklist-badge');
+  if (!list || !badge) return;
+
+  const checklist = state.review.checklist || [];
+  badge.textContent = `${checklist.filter(item => item.status === 'pass').length}/${checklist.length || 0} đạt`;
+  if (checklist.length === 0) {
+    list.innerHTML = '<div class="logic-review-empty">Checklist sẽ xuất hiện sau khi có step.</div>';
+    return;
+  }
+
+  list.innerHTML = checklist.map(item => `
+    <article class="logic-review-item logic-review-item--${item.status === 'pass' ? 'pass' : item.status === 'fail' ? 'fail' : 'warning'}">
+      <span class="logic-review-label">${item.status.toUpperCase()}</span>
+      <div class="logic-review-main"><strong>${escHtml(item.label)}:</strong> ${escHtml(item.detail)}</div>
+    </article>
+  `).join('');
+}
+
+function refreshReviewPanels(xml = state.xml) {
+  computeBaReview(state.steps, xml);
+  renderParseReview();
+  renderBaChecklist();
 }
 
 function syncFocusModeButton() {
@@ -272,6 +339,7 @@ function renderTable(steps) {
   const label = document.getElementById('steps-count-label');
   if (label) label.textContent = steps.length > 0 ? `${steps.length} bước được trích xuất.` : '';
   renderLogicSummary(steps);
+  refreshReviewPanels();
 
   const TASK_OPTIONS = [
     ['task', 'Task'],
@@ -307,6 +375,11 @@ function renderTable(steps) {
       <td><select class="table-select" data-field="type">${taskOpts}</select></td>
       <td><input class="table-input" data-field="condition" value="${esc(step.condition || '')}" placeholder="Điều kiện…" /></td>
       <td><select class="table-select" data-field="gatewayType">${gwOpts}</select></td>
+      <td><input class="table-input table-input--source" data-field="sourceText" value="${esc(step.sourceText || '')}" placeholder="Line nguồn..." /></td>
+      <td><input class="table-input table-input--meta" data-field="nodeId" value="${esc(step.nodeId || '')}" placeholder="Task_123" /></td>
+      <td><input class="table-input table-input--meta" data-field="note" value="${esc(step.note || '')}" placeholder="BA note" /></td>
+      <td><input class="table-input table-input--meta" data-field="businessRuleRef" value="${esc(step.businessRuleRef || '')}" placeholder="BR-01" /></td>
+      <td><input class="table-input table-input--meta" data-field="requirementRef" value="${esc(step.requirementRef || '')}" placeholder="US-101" /></td>
       <td>
         <button class="btn-delete-row" data-idx="${idx}" title="Xóa bước này">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -318,7 +391,10 @@ function renderTable(steps) {
     tbody.appendChild(tr);
 
     tr.querySelectorAll('.table-input, .table-select').forEach(el => {
-      el.addEventListener('change', () => { state.steps[idx][el.dataset.field] = el.value; });
+      el.addEventListener('change', () => {
+        state.steps[idx][el.dataset.field] = el.value;
+        refreshReviewPanels();
+      });
     });
     tr.querySelector('.btn-delete-row').addEventListener('click', () => {
       state.steps.splice(idx, 1);
@@ -352,10 +428,10 @@ document.getElementById('btn-analyze').addEventListener('click', async () => {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      state.steps = data.structure.steps;
+      state.steps = BATools.enrichStepsWithTraceability(desc, data.structure.steps);
       toast(`✅ Trích xuất ${state.steps.length} bước (Server)`, 'success');
     } else {
-      state.steps = parseFallback(title, desc);
+      state.steps = BATools.enrichStepsWithTraceability(desc, parseFallback(title, desc));
       toast(`Trích xuất ${state.steps.length} bước (Offline)`, 'info');
     }
     renderTable(state.steps);
@@ -374,7 +450,20 @@ document.getElementById('btn-back-2').addEventListener('click', () => goToStep(2
 
 /* ─── ADD ROW ─────────────────────────────────────────────────── */
 document.getElementById('btn-add-row').addEventListener('click', () => {
-  state.steps.push({ step: state.steps.length + 1, actor: '', action: 'Bước mới', condition: '', type: 'task' });
+  state.steps.push({
+    step: state.steps.length + 1,
+    actor: '',
+    action: 'Bước mới',
+    condition: '',
+    type: 'task',
+    gatewayType: '',
+    sourceText: '',
+    sourceLine: '',
+    note: '',
+    businessRuleRef: '',
+    requirementRef: '',
+    nodeId: ''
+  });
   renderTable(state.steps);
   document.querySelector('.logic-table-wrap').scrollTop = 9999;
 });
@@ -413,6 +502,9 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       xml = data.xml;
+      if (Array.isArray(data.traceability) && data.traceability.length === state.steps.length) {
+        state.steps = state.steps.map((step, index) => ({ ...step, nodeId: data.traceability[index]?.nodeId || step.nodeId || '' }));
+      }
       toast('✅ Sơ đồ được tạo bởi BPMN Studio Engine 🎉', 'success');
     } else {
       xml = BpmnEngine.generate(state.title, state.steps);
@@ -420,9 +512,11 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
     }
 
     state.xml = xml;
+    state.steps = BATools.attachNodeIdsFromXml(state.steps, xml);
     document.getElementById('diagram-title-display').textContent = state.title;
     document.getElementById('xml-preview').textContent = xml;
     renderDiagramInsights(state.steps);
+    refreshReviewPanels(xml);
     goToStep(3);
     await renderBpmn(xml);
   } catch (e) {
@@ -1116,6 +1210,31 @@ document.getElementById('btn-download').addEventListener('click', () => {
   toast('Đã tải file .bpmn — mở trong Camunda Modeler!', 'success');
 });
 
+document.getElementById('btn-export-ba-brief')?.addEventListener('click', () => {
+  if (!state.title || state.steps.length === 0) {
+    toast('Cần có process và step table trước khi export BA brief', 'warning');
+    return;
+  }
+  refreshReviewPanels(state.xml);
+  const markdown = BATools.buildBaDocumentMarkdown({
+    title: state.title,
+    description: state.desc,
+    steps: state.steps,
+    checklist: state.review.checklist
+  });
+  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `${(state.title || 'process').replace(/[<>:"|?*\\/]/g, '_').trim()}-BA-brief.md`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Đã export BA brief', 'success');
+});
+
 /* ─── SAVE (localStorage + Catalog) ──────────────────────────── */
 // Handled by the BA Catalog section below — this stub prevents the old handler from conflicting.
 // (The old plain localStorage save is replaced by the full catalog save)
@@ -1126,10 +1245,16 @@ document.getElementById('btn-start-over').addEventListener('click', () => {
   if (!confirm('Bắt đầu lại từ đầu?')) return;
   document.getElementById('process-title').value = '';
   document.getElementById('process-desc').value = '';
-  state.steps = []; state.xml = '';
+  state.title = '';
+  state.desc = '';
+  state.steps = [];
+  state.xml = '';
+  state.review = { warnings: [], checklist: [] };
   if (state.viewer) { state.viewer.destroy(); state.viewer = null; }
   renderLogicSummary([]);
   renderDiagramInsights([]);
+  renderParseReview();
+  renderBaChecklist();
   goToStep(1);
 });
 
@@ -1302,14 +1427,20 @@ function parseFallback(title, desc) {
       condition:   condition.substring(0, 100),
       type,
       gatewayType,
+      sourceText:  line,
+      sourceLine:  rawLines.indexOf(rawLine) + 1,
+      note: '',
+      businessRuleRef: '',
+      requirementRef: '',
+      nodeId: '',
     });
   }
 
   /* 6. FALLBACK: ensure at least 2 steps */
   if (steps.length === 0) {
     return [
-      { step: 1, actor: 'Người dùng', action: title || 'Bắt đầu quy trình', condition: '', type: 'userTask',    gatewayType: '' },
-      { step: 2, actor: 'Hệ thống',   action: 'Xử lý và ghi nhận kết quả',   condition: '', type: 'serviceTask', gatewayType: '' },
+      { step: 1, actor: 'Người dùng', action: title || 'Bắt đầu quy trình', condition: '', type: 'userTask', gatewayType: '', sourceText: title || 'Bắt đầu quy trình', sourceLine: 1, note: '', businessRuleRef: '', requirementRef: '', nodeId: '' },
+      { step: 2, actor: 'Hệ thống', action: 'Xử lý và ghi nhận kết quả', condition: '', type: 'serviceTask', gatewayType: '', sourceText: 'Xử lý và ghi nhận kết quả', sourceLine: 2, note: '', businessRuleRef: '', requirementRef: '', nodeId: '' },
     ];
   }
   return steps;
@@ -1333,6 +1464,8 @@ updatePromptWorkspace();
 renderLogicSummary([]);
 renderDiagramInsights([]);
 syncFocusModeButton();
+renderParseReview();
+renderBaChecklist();
 goToStep(1);
 
 /* ════════════════════════════════════════════════════════════════
@@ -1376,6 +1509,7 @@ function renderCatalog(filter = '') {
       </div>
       <div class="catalog-item-actions">
         <button onclick="loadFromCatalog('${item.id}')">📂 Load</button>
+        <button onclick="compareCatalogItem('${item.id}')">🔀 Compare</button>
         <button onclick="duplicateCatalogItem('${item.id}')">📋 Duplicate</button>
         <button class="btn-delete" onclick="deleteCatalogItem('${item.id}')">🗑 Xóa</button>
       </div>
@@ -1401,6 +1535,10 @@ window.loadFromCatalog = async function(id) {
     await renderBpmn(item.xml);
     state.xml = item.xml;
     state.title = item.title;
+    state.desc = item.description || '';
+    state.steps = Array.isArray(item.steps) ? item.steps : [];
+    refreshReviewPanels(item.xml);
+    renderTable(state.steps);
 
     // Restore metadata
     document.getElementById('meta-owner').value   = item.owner || '';
@@ -1437,6 +1575,46 @@ window.duplicateCatalogItem = function(id) {
   toast('Đã duplicate quy trình', 'success');
 };
 
+window.compareCatalogItem = function(id) {
+  const items = loadCatalog();
+  const item = items.find(entry => entry.id === id);
+  if (!item) return;
+
+  const current = {
+    title: state.title || 'Current workspace',
+    status: document.querySelector('.meta-status-btn.active')?.dataset.status || 'draft',
+    steps: state.steps || []
+  };
+
+  const diff = BATools.compareProcessSnapshots(item, current);
+  document.getElementById('compare-overlay').classList.remove('hidden');
+  document.getElementById('compare-modal').classList.remove('hidden');
+  document.getElementById('compare-modal-body').innerHTML = `
+    <div class="compare-summary">
+      <div class="compare-card">
+        <strong>${escHtml(diff.summary.baseTitle)}</strong>
+        <span>Status: ${escHtml(diff.summary.baseStatus)}</span>
+        <span>${(item.steps || []).length} step</span>
+      </div>
+      <div class="compare-card">
+        <strong>${escHtml(diff.summary.targetTitle)}</strong>
+        <span>Status: ${escHtml(diff.summary.targetStatus)}</span>
+        <span>${(current.steps || []).length} step</span>
+      </div>
+      <div class="compare-card">
+        <strong>Stakeholder changelog</strong>
+        <span>Step delta: ${diff.summary.stepDelta > 0 ? '+' : ''}${diff.summary.stepDelta}</span>
+        <span>Actor added: ${diff.actorChanges.added.join(', ') || 'None'}</span>
+        <span>Actor removed: ${diff.actorChanges.removed.join(', ') || 'None'}</span>
+      </div>
+    </div>
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px">Changed steps / lanes / rules</div>
+    <div class="compare-list">
+      ${diff.changelog.map(itemText => `<div class="compare-item">${escHtml(itemText)}</div>`).join('')}
+    </div>
+  `;
+};
+
 function openCatalog() {
   document.getElementById('catalog-drawer').classList.remove('hidden');
   document.getElementById('catalog-overlay').classList.remove('hidden');
@@ -1447,9 +1625,16 @@ function closeCatalog() {
   document.getElementById('catalog-overlay').classList.add('hidden');
 }
 
+function closeCompare() {
+  document.getElementById('compare-modal').classList.add('hidden');
+  document.getElementById('compare-overlay').classList.add('hidden');
+}
+
 document.getElementById('btn-catalog').addEventListener('click', openCatalog);
 document.getElementById('btn-close-catalog').addEventListener('click', closeCatalog);
 document.getElementById('catalog-overlay').addEventListener('click', closeCatalog);
+document.getElementById('btn-close-compare')?.addEventListener('click', closeCompare);
+document.getElementById('compare-overlay')?.addEventListener('click', closeCompare);
 document.getElementById('catalog-search').addEventListener('input', e => renderCatalog(e.target.value));
 document.getElementById('btn-catalog-clear').addEventListener('click', () => {
   if (confirm('Xóa tất cả quy trình trong catalog?')) {
@@ -1477,7 +1662,17 @@ document.getElementById('btn-save').addEventListener('click', async () => {
 
   const items = loadCatalog();
   const existing = items.findIndex(i => i.title === title);
-  const entry = { id: existing >= 0 ? items[existing].id : Date.now().toString(), title, xml, owner, version, status, savedAt: new Date().toISOString() };
+  const entry = {
+    id: existing >= 0 ? items[existing].id : Date.now().toString(),
+    title,
+    xml,
+    owner,
+    version,
+    status,
+    description: state.desc,
+    steps: state.steps,
+    savedAt: new Date().toISOString()
+  };
 
   if (existing >= 0) items[existing] = entry;
   else items.push(entry);
@@ -1616,6 +1811,7 @@ function renderAnalyzeModal(data, xml) {
   const s   = data.statistics || {};
   const cmp = data.complexity || {};
   const issues = data.issues || [];
+  const checklist = BATools.buildBaChecklist(state.steps, xml);
   const score  = Math.max(0, 100 - issues.filter(i=>i.severity==='error').length*20 - issues.filter(i=>i.severity==='warning').length*10);
   const scoreCls = score >= 80 ? 'good' : score >= 50 ? 'ok' : 'bad';
 
@@ -1664,6 +1860,18 @@ function renderAnalyzeModal(data, xml) {
         </li>
       `).join('')}
     </ul>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border)">
+      <div style="font-weight:700; font-size:13px; margin-bottom:8px">🧭 BA-Friendly Checklist</div>
+      <ul class="analyze-issue-list">
+        ${checklist.map(item => `
+          <li class="analyze-issue-item ${item.status === 'pass' ? 'info' : item.status === 'fail' ? 'error' : 'warning'}">
+            <span>${item.status === 'pass' ? '🟢' : item.status === 'fail' ? '🔴' : '🟡'}</span>
+            <span><strong>${escHtml(item.label)}:</strong> ${escHtml(item.detail)}</span>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
 
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border)">
       <div style="font-weight:700; font-size:13px; margin-bottom:8px">📌 BPMN 2.0 Compliance</div>

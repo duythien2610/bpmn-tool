@@ -13,7 +13,7 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const { generateBpmn, importAndLayoutBpmn, validateBpmn } = require('./bpmn-service');
+const { generateBpmnArtifacts, importAndLayoutBpmn, validateBpmn } = require('./bpmn-service');
 const { parseDescriptionToStructure } = require('./parser');
 
 const app = express();
@@ -59,8 +59,8 @@ app.post('/api/generate', async (req, res) => {
       return res.status(400).json({ error: 'steps array is required' });
     }
 
-    const xml = await generateBpmn({ title: title || 'My Process', steps, lanes });
-    res.json({ success: true, xml });
+    const result = await generateBpmnArtifacts({ title: title || 'My Process', steps, lanes });
+    res.json({ success: true, ...result });
   } catch (err) {
     console.error('[/api/generate]', err);
     res.status(500).json({ error: err.message });

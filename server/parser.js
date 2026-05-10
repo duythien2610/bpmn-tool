@@ -60,6 +60,14 @@ const CONDITION_STARTERS = [
   /\bkiểm\s*tra\b.*\?/i,
 ];
 
+const PARALLEL_STARTERS = [
+  /^đồng\s*thời\b/i,
+  /^song\s*song\b/i,
+  /^simultaneously\b/i,
+  /^parallel\b/i,
+  /^at\s+the\s+same\s+time\b/i,
+];
+
 const SKIP_PATTERNS = [
   /^\s*[-–—•]\s*$/,
   /^\s*\d+\.?\s*$/,
@@ -91,10 +99,22 @@ function extractLeadingActor(text) {
   return extractActor(prefix);
 }
 
+function extractGenericActorLabel(text) {
+  const raw = String(text || '').trim();
+  const match = raw.match(/^([^,:\uFF1A\n]{2,40})[:\uFF1A](.*)$/);
+  if (!match) return '';
+  const actor = match[1].trim();
+  const wordCount = actor.split(/\s+/).length;
+  const invalidLead = /^(nếu|if|when|khi|simultaneously|parallel|đồng thời|song song)\b/i.test(actor);
+  return wordCount <= 5 && !invalidLead ? actor : '';
+}
+
 function inferActorFromAction(action, fallbackActor) {
   const raw = String(action || '').trim();
   const explicit = extractLeadingActor(raw);
   if (explicit) return explicit;
+  const generic = extractGenericActorLabel(raw);
+  if (generic) return generic;
 
   const inferred = ACTOR_INFERENCE_HINTS.find(({ re }) => re.test(raw));
   if (inferred) return inferred.actor;
@@ -119,11 +139,11 @@ function cleanupAction(text, actor) {
   let action = String(text || '').trim();
   if (!action) return '';
 
-  const actorLabel = normalizeActor(actor);
-  if (actorLabel) {
+  const actorLabels = [normalizeActor(actor), extractGenericActorLabel(action)].filter(Boolean);
+  actorLabels.forEach(actorLabel => {
     const escapedActor = actorLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     action = action.replace(new RegExp(`^${escapedActor}\\s*[:：-]?\\s*`, 'i'), '').trim();
-  }
+  });
 
   action = action
     .replace(/^(nếu|if|khi|when)\s+/i, '')
@@ -146,23 +166,36 @@ function buildStepFromClause(line, stepNum, lastActor) {
   if (!cleanLine) return null;
 
   const isCondition = CONDITION_STARTERS.some(re => re.test(cleanLine));
+  const isParallel = PARALLEL_STARTERS.some(re => re.test(cleanLine));
   const fallbackActor = inferActorFromAction(cleanLine, lastActor || 'Người dùng') || lastActor || 'Người dùng';
 
   let condition = '';
   let action = cleanLine;
+  let gatewayType = '';
 
-  if (isCondition) {
+  if (isCondition || isParallel) {
     const colonSplit = cleanLine.split(/[：:]/);
+    gatewayType = isParallel ? 'parallelGateway' : 'exclusiveGateway';
     if (colonSplit.length >= 2) {
-      condition = colonSplit[0]
-        .replace(/^(nếu|if|khi|when)\s*/i, '')
-        .replace(/\s*\(.*?\)/g, '')
-        .trim();
-      action = colonSplit.slice(1).join(':').trim();
+      if (isParallel) {
+        condition = colonSplit[0].replace(/^(đồng\s*thời|song\s*song|simultaneously|parallel|at\s+the\s+same\s+time)\s*/i, '').trim() || 'parallel split';
+        action = colonSplit.slice(1).join(':').trim();
+      } else {
+        condition = colonSplit[0]
+          .replace(/^(nếu|if|khi|when)\s*/i, '')
+          .replace(/\s*\(.*?\)/g, '')
+          .trim();
+        action = colonSplit.slice(1).join(':').trim();
+      }
     } else {
-      const conditionMatch = cleanLine.match(/(?:nếu|if|khi|when)\s+([^,\.:]+)/i);
-      condition = conditionMatch ? conditionMatch[1].trim() : '';
-      action = cleanLine.replace(/^(nếu|if|khi|when)\s+/i, '');
+      if (isParallel) {
+        condition = 'parallel split';
+        action = cleanLine.replace(/^(đồng\s*thời|song\s*song|simultaneously|parallel|at\s+the\s+same\s+time)\s*/i, '');
+      } else {
+        const conditionMatch = cleanLine.match(/(?:nếu|if|khi|when)\s+([^,\.:]+)/i);
+        condition = conditionMatch ? conditionMatch[1].trim() : '';
+        action = cleanLine.replace(/^(nếu|if|khi|when)\s+/i, '');
+      }
     }
   }
 
@@ -176,7 +209,7 @@ function buildStepFromClause(line, stepNum, lastActor) {
     action: action.substring(0, 120),
     condition: condition.substring(0, 80),
     type: inferTaskType(action),
-    gatewayType: condition ? 'exclusiveGateway' : '',
+    gatewayType: gatewayType || (condition ? 'exclusiveGateway' : ''),
   };
 }
 
@@ -196,6 +229,7 @@ function postProcessStructure(title, description, structure) {
     const candidateActor =
       normalizeActor(rawStep?.actor) ||
       extractActor(rawStep?.action) ||
+      extractGenericActorLabel(rawStep?.action) ||
       inferActorFromAction(rawStep?.action, lastActor) ||
       lastActor ||
       fallbackActors[0] ||

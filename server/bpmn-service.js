@@ -564,7 +564,7 @@ function buildFlowXml(flow, nodeById) {
   return `  <bpmn:sequenceFlow id="${flow.id}"${name} sourceRef="${flow.from}" targetRef="${flow.to}" />`;
 }
 
-async function generateBpmn({ title, steps }) {
+async function generateBpmnArtifacts({ title, steps }) {
   resetIds();
   const safeSteps = Array.isArray(steps) ? steps : [];
   const normalizedSteps = safeSteps.length ? safeSteps : [
@@ -595,8 +595,7 @@ async function generateBpmn({ title, steps }) {
   const laneXml = buildLaneXml(nodes, actors, laneIds);
   const nodeXml = nodes.map(buildNodeXml).join('\n');
   const flowXml = flows.map(flow => buildFlowXml(flow, nodeById)).join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions
   xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
@@ -627,6 +626,30 @@ ${flowXml}
 ${shapes}${edges}    </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`;
+
+  const usedNodeIds = new Set();
+  const traceability = normalizedSteps.map(step => {
+    const found = nodes.find(node =>
+      !usedNodeIds.has(node.id)
+      && !node.type.includes('Gateway')
+      && node.type !== 'startEvent'
+      && node.type !== 'endEvent'
+      && node.name === step.action
+    );
+    if (found) usedNodeIds.add(found.id);
+    return {
+      action: step.action,
+      actor: step.actor,
+      nodeId: found?.id || ''
+    };
+  });
+
+  return { xml, traceability };
+}
+
+async function generateBpmn({ title, steps }) {
+  const result = await generateBpmnArtifacts({ title, steps });
+  return result.xml;
 }
 
 async function importAndLayoutBpmn(xml) {
@@ -673,4 +696,4 @@ async function validateBpmn(xml) {
   };
 }
 
-module.exports = { generateBpmn, importAndLayoutBpmn, validateBpmn };
+module.exports = { generateBpmn, generateBpmnArtifacts, importAndLayoutBpmn, validateBpmn };

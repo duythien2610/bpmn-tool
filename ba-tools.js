@@ -149,62 +149,130 @@
     const safeSteps = Array.isArray(steps) ? steps : [];
     const safeXml = String(xml || '');
     const actors = countUniqueActors(safeSteps);
+
+
+    /* ── Cheat Sheet Checks ─────────────────────────────── */
+
+    // [Rule 9.1] Verb + Object naming — task names should start with a verb
+    const verbPrefixRe = /^(kiểm|xác|phê|gửi|tạo|nhận|cập|duyệt|xử|đặt|lấy|giao|soạn|tính|thanh|lập|xuất|nhập|đóng|mở|submit|send|validate|review|approve|create|check|update|generate|process|receive|notify|collect|confirm|reject|verify|prepare|complete|cancel|assign|log|call|fetch|calculate|register|schedule|upload|download|trigger|deploy|notify|start|stop|mark|close|report)/i;
+    const badNamedTasks = safeSteps.filter(s => s.action && s.type !== 'startEvent' && s.type !== 'endEvent' && !verbPrefixRe.test(s.action.trim()));
+
+    // [Rule 7] Max 30 tasks
+    const taskCount = safeSteps.filter(s => !['startEvent','endEvent'].includes(s.type)).length;
+
+    // [Rule 3.1] XOR should always have a paired condition (cover all cases)
+    const xorSteps = safeSteps.filter(s => s.gatewayType === 'exclusiveGateway' && s.condition);
+    let unpairedXor = 0;
+    xorSteps.forEach((s, i) => {
+      const idx = safeSteps.indexOf(s);
+      const next = safeSteps[idx + 1];
+      if (!next || next.gatewayType !== 'exclusiveGateway') unpairedXor++;
+    });
+
+    // [Rule 4.2] AND (parallel) must have at least 2 branches
+    const andSteps = safeSteps.filter(s => s.gatewayType === 'parallelGateway');
+    const andGroups = []; let andBuf = [];
+    safeSteps.forEach(s => {
+      if (s.gatewayType === 'parallelGateway') { andBuf.push(s); }
+      else if (andBuf.length) { andGroups.push(andBuf); andBuf = []; }
+    });
+    if (andBuf.length) andGroups.push(andBuf);
+    const singleBranchAnd = andGroups.filter(g => g.length < 2).length;
+
+    // [Rule 10] Timer / SLA flow
+    const hasTimerInXml = /timerEventDefinition|timeDuration|timeCycle|timeDate/i.test(safeXml);
+    const hasTimerKeyword = safeSteps.some(s => /chờ\s+\d+|wait\s+\d+|sau\s+\d+\s*(giờ|phút|ngày|hour|minute|day)|timer|sla|timeout/i.test(s.action + ' ' + s.condition));
+
+    // [Rule 11 / 16] Exception / reject path
+    const hasRejectPath = /conditionExpression|Rejected|từ chối|reject|error|lỗi/gi.test(safeXml);
+    const hasEndState = /bpmn:endEvent\b/gi.test(safeXml);
+
+    // [Rule 9.4] Happy path — at least 1 non-conditional step exists
+    const hasHappyPath = safeSteps.some(s => !s.condition && s.action);
+
+    // [Rule 6] Actor coverage
     const hasExclusiveInSteps = safeSteps.some(step => step.gatewayType === 'exclusiveGateway');
     const hasParallelInSteps = safeSteps.some(step => step.gatewayType === 'parallelGateway');
-    const hasRejectPath = /Kết thúc \(từ chối\)|End \(Rejected\)|conditionExpression/gi.test(safeXml);
-    const hasEndState = /<bpmn:endEvent\b/gi.test(safeXml);
     const ambiguousActions = safeSteps.filter(step => detectMultipleActions(step.sourceText || step.action));
     const actorAligned = safeSteps.filter(step => step.actor && step.sourceText).length === safeSteps.length;
 
     const checks = [
       {
+        key: 'start-end',
+        label: '✅ Có Start & End Event',
+        status: hasEndState ? 'pass' : 'fail',
+        detail: hasEndState ? 'XML có đầy đủ start/end event.' : '⚠️ Thiếu End Event — có thể gây token leak trong Camunda.'
+      },
+      {
         key: 'actors',
-        label: 'Đúng actor / lane',
+        label: '👥 Actor / Lane rõ ràng',
         status: actors.length > 1 && actorAligned ? 'pass' : actors.length > 0 ? 'warn' : 'fail',
         detail: actors.length > 1
-          ? `Đã nhận diện ${actors.length} lane chính: ${actors.join(', ')}.`
-          : 'Mới có 1 lane hoặc còn step thiếu actor rõ ràng.'
+          ? `${actors.length} lane: ${actors.join(', ')}.`
+          : 'Mới có 1 lane hoặc còn step thiếu actor.'
+      },
+      {
+        key: 'task-naming',
+        label: '🏷️ Task name = Động từ + Tân ngữ',
+        status: badNamedTasks.length === 0 ? 'pass' : 'warn',
+        detail: badNamedTasks.length === 0
+          ? 'Tất cả task đều bắt đầu bằng động từ hành động.'
+          : `${badNamedTasks.length} task chưa đúng chuẩn Verb+Object: "${badNamedTasks.slice(0,2).map(s=>s.action).join('", "')}"`
       },
       {
         key: 'gateways',
-        label: 'Đúng loại gateway',
-        status: hasExclusiveInSteps || hasParallelInSteps ? 'pass' : 'warn',
-        detail: hasExclusiveInSteps || hasParallelInSteps
-          ? `Đã phát hiện ${hasExclusiveInSteps ? 'XOR' : ''}${hasExclusiveInSteps && hasParallelInSteps ? ' và ' : ''}${hasParallelInSteps ? 'AND' : ''} trong flow.`
-          : 'Chưa có gateway hoặc chưa đủ dữ liệu để xác nhận rẽ nhánh.'
+        label: '🔀 Gateway đúng loại & đối xứng',
+        status: (unpairedXor === 0 && singleBranchAnd === 0) ? 'pass' : 'warn',
+        detail: (() => {
+          const msgs = [];
+          if (unpairedXor > 0) msgs.push(`${unpairedXor} XOR chưa có nhánh đối ứng (Nếu A → cần có Nếu B).`);
+          if (singleBranchAnd > 0) msgs.push(`${singleBranchAnd} AND gateway chỉ có 1 branch (cần ≥2 để song song).`);
+          return msgs.length ? msgs.join(' ') : `Đã phát hiện ${hasExclusiveInSteps?'XOR':''}${hasExclusiveInSteps&&hasParallelInSteps?' và ':''}${hasParallelInSteps?'AND':''} đúng chuẩn.`;
+        })()
       },
       {
-        key: 'coverage',
-        label: 'Không mất bước nghiệp vụ',
-        status: safeSteps.length > 0 ? 'pass' : 'warn',
-        detail: `${safeSteps.length} step đang được giữ trong bảng review trước khi generate.`
-      },
-      {
-        key: 'ambiguity',
-        label: 'Không nhập nhằng condition / action',
-        status: ambiguousActions.length === 0 ? 'pass' : 'warn',
-        detail: ambiguousActions.length === 0
-          ? 'Mỗi step hiện có xu hướng giữ 1 hành động chính.'
-          : `${ambiguousActions.length} step cần tách bớt nhiều hành động trong cùng một câu.`
+        key: 'happy-path',
+        label: '😊 Có happy path rõ ràng',
+        status: hasHappyPath ? 'pass' : 'warn',
+        detail: hasHappyPath ? 'Flow có ít nhất 1 nhánh không điều kiện (happy path).' : 'Chưa rõ happy path — tất cả bước đều là điều kiện?'
       },
       {
         key: 'exceptions',
-        label: 'Có reject path / exception path',
+        label: '⚠️ Có reject / exception path',
         status: hasRejectPath ? 'pass' : 'warn',
         detail: hasRejectPath
-          ? 'Đã có reject / exception flow thể hiện trong BPMN.'
-          : 'Chưa thấy reject path rõ ràng. Nên bổ sung nhánh từ chối hoặc ngoại lệ.'
+          ? 'Đã có reject / exception flow trong BPMN.'
+          : 'Chưa có nhánh từ chối hoặc ngoại lệ rõ ràng.'
       },
       {
-        key: 'end-state',
-        label: 'Có end state rõ ràng',
-        status: hasEndState ? 'pass' : 'fail',
-        detail: hasEndState ? 'XML đã có end event rõ ràng.' : 'Chưa có end event trong XML.'
+        key: 'timer-sla',
+        label: '⏱ Có Timer / SLA nếu cần',
+        status: (hasTimerInXml || hasTimerKeyword) ? 'pass' : 'info',
+        detail: (hasTimerInXml || hasTimerKeyword)
+          ? 'Đã có timer hoặc SLA được mô tả.'
+          : 'Chưa thấy timer/SLA. Nếu quy trình có thời hạn, hãy thêm "Chờ X phút" hoặc "Nếu sau X giờ".'
+      },
+      {
+        key: 'task-count',
+        label: '📏 Số task trong giới hạn (≤30)',
+        status: taskCount <= 30 ? 'pass' : 'warn',
+        detail: taskCount <= 30
+          ? `${taskCount} task — trong giới hạn 7±2 (visible) và tối đa 30.`
+          : `${taskCount} task — vượt ngưỡng 30. Hãy tách subprocess.`
+      },
+      {
+        key: 'ambiguity',
+        label: '1️⃣ Mỗi step = 1 hành động duy nhất',
+        status: ambiguousActions.length === 0 ? 'pass' : 'warn',
+        detail: ambiguousActions.length === 0
+          ? 'Mỗi step có xu hướng 1 hành động chính.'
+          : `${ambiguousActions.length} step có thể chứa nhiều hành động — hãy tách ra.`
       }
     ];
 
     return checks;
   }
+
 
   function buildBusinessArtifacts(title, description, steps, checklist) {
     const safeSteps = Array.isArray(steps) ? steps : [];

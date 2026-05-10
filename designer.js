@@ -1403,6 +1403,41 @@ function parseFallback(title, desc) {
       .trim();
     if (!line || line.length < 3) continue;
 
+    /* 5A-EV. DETECT INTERMEDIATE / SPECIAL EVENT LINES (before cond check) */
+    let eventType     = '';
+    let eventDuration = '';
+
+    // Timer catch: "Chờ 30 phút:", "Chờ 2 giờ:", "Chờ đến ngày 15:"
+    const timerCatchRe = /^(ch[oờ]|wait)\s+(\d+\s*(gi[aâ]y|ph[uú]t|gi[oờ]|ng[aà]y|tu[aầ]n|th[aá]ng|second|minute|hour|day)|[dđ][eế]n\s+|until\s+)/i;
+    // Message catch: "Chờ xác nhận từ ngân hàng:"
+    const msgCatchRe  = /^(ch[oờ]|wait)\s+(?!\d)\S.*\b(t[uừ]|from)\b/i;
+    // Signal/message throw: "Gửi thông báo:", "Broadcast:"
+    const sigThrowRe  = /^(g[uử]i\s+th[oô]ng\s*b[aá]o|broadcast|throw\s+signal|ph[aá]t\s+t[ií]n\s*hi[eệ]u)/i;
+    // Error end: "Nếu lỗi ...:"
+    const errLineRe   = /^(n[eế]u\s+l[oỗ]i|if\s+error)/i;
+
+    const isTimerCatch = timerCatchRe.test(line);
+    const isMsgCatch   = !isTimerCatch && msgCatchRe.test(line);
+    const isSigThrow   = sigThrowRe.test(line);
+
+    if (isTimerCatch) {
+      // Normalize duration to ISO 8601
+      const dm = line.match(/(\d+)\s*(gi[aâ]y|second|s)/i);
+      const hm = line.match(/(\d+)\s*(gi[oờ]|hour|h)/i);
+      const nm2= line.match(/(\d+)\s*(ng[aà]y|day|d)/i);
+      const pm = line.match(/(\d+)\s*(ph[uú]t|minute|m)/i);
+      if (dm) eventDuration = `PT${dm[1]}S`;
+      else if (hm) eventDuration = `PT${hm[1]}H`;
+      else if (nm2) eventDuration = `P${nm2[1]}D`;
+      else if (pm) eventDuration = `PT${pm[1]}M`;
+      else eventDuration = 'PT30M';
+      eventType = 'timer';
+    } else if (isMsgCatch) {
+      eventType = 'message';
+    } else if (isSigThrow) {
+      eventType = 'signal';
+    }
+
     /* 5A. DETECT CONDITIONAL PREFIX & GATEWAY TYPE */
     const condPrefixRe = /^(n[eế]u|if|khi|when|tr[uư][oờ]ng\s*h[oợ]p|trong\s*tr[uư][oờ]ng\s*h[oợ]p)\b/i;
     const isCond = condPrefixRe.test(line);
@@ -1468,12 +1503,32 @@ function parseFallback(title, desc) {
 
     /* 5E. INFER TASK TYPE */
     let type = 'task';
-    for (const { re, t } of TASK_TYPE_RULES) {
-      if (re.test(action)) { type = t; break; }
-    }
-    // Upgrade generic task → serviceTask when actor = 'Hệ thống'
-    if (type === 'task' && /h[eệ]\s*th[oố]ng|system/i.test(actor)) {
-      type = 'serviceTask';
+    // Intermediate events take priority
+    if (isTimerCatch) {
+      type = 'intermediateCatchEvent';
+      // Use line text as action if not set
+      if (!action || action === bodyText) {
+        const colonIdx = line.indexOf(':');
+        action = colonIdx !== -1 ? line.substring(0, colonIdx).trim() : line.trim();
+      }
+      actor = lastActor; // inherit actor for catch events
+    } else if (isMsgCatch) {
+      type = 'intermediateCatchEvent';
+      if (!action || action === bodyText) {
+        const colonIdx = line.indexOf(':');
+        action = colonIdx !== -1 ? line.substring(0, colonIdx).trim() : line.trim();
+      }
+      actor = lastActor;
+    } else if (isSigThrow) {
+      type = 'intermediateThrowEvent';
+    } else {
+      for (const { re, t } of TASK_TYPE_RULES) {
+        if (re.test(action)) { type = t; break; }
+      }
+      // Upgrade generic task → serviceTask when actor = 'Hệ thống'
+      if (type === 'task' && /h[eệ]\s*th[oố]ng|system/i.test(actor)) {
+        type = 'serviceTask';
+      }
     }
 
     /* 5F. GATEWAY */
@@ -1481,14 +1536,16 @@ function parseFallback(title, desc) {
 
 
     steps.push({
-      step:        n++,
-      actor:       actor.substring(0, 60),
-      action:      action.substring(0, 120),
-      condition:   condition.substring(0, 100),
+      step:          n++,
+      actor:         actor.substring(0, 60),
+      action:        action.substring(0, 120),
+      condition:     condition.substring(0, 100),
       type,
       gatewayType,
-      sourceText:  line,
-      sourceLine:  rawLines.indexOf(rawLine) + 1,
+      eventType,
+      eventDuration,
+      sourceText:    line,
+      sourceLine:    rawLines.indexOf(rawLine) + 1,
       note: '',
       businessRuleRef: '',
       requirementRef: '',

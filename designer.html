@@ -1010,83 +1010,96 @@ Khách hàng nhận hàng và xác nhận."></textarea>
     
     const promptText = `Bạn là một Business Analyst chuyên về BPMN 2.0 (Camunda).
 ${hasDesc
-  ? `Tôi có nghiệp vụ sau đây:\n\n"${processDesc}"\n\nHãy chuẩn hóa lại thành các bước BPMN đầy đủ, kể cả các sự kiện (event), ngoại lệ (exception) và điều kiện chờ đợi.`
-  : `Tôi sẽ mô tả một nghiệp vụ. Hãy chuẩn hóa thành các bước BPMN đầy đủ, kể cả các sự kiện, ngoại lệ, và điều kiện chờ đợi.\n\n"[DÁN MÔ TẢ NGHIỆP VỤ CỦA BẠN VÀO ĐÂY]"`
+  ? `Tôi có nghiệp vụ sau đây:\n\n"${processDesc}"\n\nHãy chuẩn hóa lại thành các bước BPMN đầy đủ, bao gồm event, gateway, exception và điều kiện chờ đợi.`
+  : `Tôi sẽ mô tả một nghiệp vụ. Hãy chuẩn hóa thành các bước BPMN đầy đủ.\n\n"[DÁN MÔ TẢ NGHIỆP VỤ CỦA BẠN VÀO ĐÂY]"`
 }
 
 ═══════════════════════════════════════════════════════════════════
 
-ĐỊNH DẠNG CHUẨN — TUÂN THỬ 100%:
+ĐỊNH DẠNG CHUẨN — TUÂN THỦ 100%:
 
-CÁC LOẠI BƯỚC:
+1️⃣  TASK THÔNG THƯỜNG:
+    Số. Vai trò: Hành động (Động từ + Tân ngữ)
+    Ví dụ: 1. Khách hàng: Đặt hàng trên website
+    Ví dụ: 2. Hệ thống: Kiểm tra tồn kho tự động
 
-1️⃣  HÀNH ĐỘNG BÌNH THƯỜNG:
-    Số. Vai trò: Hành động
-    Ví dụ: 3. Khách hàng: Đặt hàng trên website
+2️⃣  ĐIỀU KIỆN RẼ NHÁNH XOR (chỉ đi 1 nhánh):
+    Số. Nếu [Điều kiện A]: Vai trò: Hành động
+    Số. Nếu [Điều kiện B]: Vai trò: Hành động
+    → PHẢI có đúng 2 dòng "Nếu" liên tiếp thành 1 cặp XOR.
+    Ví dụ: 5. Nếu còn hàng: Nhân viên kho: Chuẩn bị hàng
+    Ví dụ: 6. Nếu hết hàng: Hệ thống: Gửi email hủy đơn
 
-2️⃣  HÀNH ĐỘNG TỰ ĐỘNG HỆ THỐNG:
-    Số. Hệ thống: [Hành động] [Tự động]
-    Ví dụ: 4. Hệ thống: Kiểm tra tồn kho tự động
-
-3️⃣  ĐIỀU KIỆN RẼ NHÁNH (XOR Gateway):
-    Số. Nếu [Điều kiện]: Vai trò: Hành động
-    Ví dụ: 5. Nếu hết hàng: Hệ thống: Gửi email hủy đơn
-
-4️⃣  BƯỚC CHẠY SONG SONG (AND Gateway):
+3️⃣  SONG SONG AND (nhiều task chạy cùng lúc):
     Số. Đồng thời: Vai trò: Hành động
-    Ví dụ: 8. Đồng thời: Nhân viên kho: Chuẩn bị chỗ nhận hàng
+    → Mỗi task song song = 1 dòng "Đồng thời:" riêng.
+    Ví dụ: 8. Đồng thời: Nhân viên kho: Đóng gói hàng
+    Ví dụ: 9. Đồng thời: Kế toán: Tạo phiếu vận chuyển
 
-5️⃣  CHỜ ĐỢI / TIMER (Intermediate Event):
-    Số. Chờ [khoảng thời gian]: [Hành động nếu có]
-    Ví dụ: 10. Chờ 30 phút: (để hệ thống chờ thanh toán)
-    Ví dụ: 11. Chờ đến ngày 15 hàng tháng: Quản lý: Tạo báo cáo
+4️⃣  CHỜ ĐỢI / TIMER (Intermediate Timer Event ⏱):
+    Số. Chờ [thời gian]:
+    → Dùng khi process phải chờ một khoảng thời gian cố định.
+    Ví dụ: 10. Chờ 30 phút:
+    Ví dụ: 11. Chờ 2 giờ:
+    Ví dụ: 12. Chờ 3 ngày:
 
-6️⃣  LỖI / NGOẠI LỆ (Error Boundary Event):
-    Số. Nếu lỗi [chi tiết]: Vai trò: Hành động phục hồi
-    Ví dụ: 14. Nếu lỗi thanh toán: Kế toán: Thử lại hoặc liên hệ nhà cung cấp
+5️⃣  CHỜ SỰ KIỆN TỪ BÊN NGOÀI (Intermediate Message Catch Event 📨):
+    Số. Chờ [sự kiện] từ [bên ngoài]:
+    → Dùng khi process chờ phản hồi/callback từ hệ thống/người khác.
+    Ví dụ: 13. Chờ xác nhận thanh toán từ ngân hàng:
+    Ví dụ: 14. Chờ phê duyệt từ quản lý:
+    Ví dụ: 15. Chờ phản hồi từ nhà cung cấp:
 
-7️⃣  VƯỢT TIMEOUT / SLA (Boundary Event):
-    Số. Nếu sau [thời gian]: Vai trò: Hành động khẩn cấp
-    Ví dụ: 9. Nếu sau 4 giờ chưa xử lý: Supervisor: Nâng cấp ticket
+6️⃣  BROADCAST / GỬI THÔNG BÁO (Intermediate Signal Throw Event 📤):
+    Số. Gửi thông báo: [Chi tiết]
+    → Dùng khi cần phát tín hiệu ra cho nhiều nơi, không chờ phản hồi.
+    Ví dụ: 16. Gửi thông báo: Cập nhật trạng thái đơn hàng cho tất cả hệ thống
 
-8️⃣  BROADCAST / NOTIFICATION (Message/Signal Throw):
-    Số. Gửi thông báo: [Chi tiết] (không chờ phản hồi)
-    Ví dụ: 12. Gửi thông báo: Thông báo cho tất cả user về kết quả
+7️⃣  LỖI / NGOẠI LỆ (Error/Exception Flow ❌):
+    Số. Nếu lỗi [mô tả]: Vai trò: Hành động xử lý
+    Ví dụ: 17. Nếu lỗi thanh toán: Kế toán: Thử lại hoặc liên hệ nhà cung cấp
+    Ví dụ: 18. Nếu lỗi hệ thống: Hệ thống: Ghi log và thông báo admin
+
+8️⃣  VƯỢT TIMEOUT / SLA (Timer Boundary / Escalation ⏰):
+    Số. Nếu sau [thời gian] chưa [hành động]: Vai trò: Hành động khẩn cấp
+    Ví dụ: 19. Nếu sau 4 giờ chưa phê duyệt: Supervisor: Nâng cấp ticket
 
 ═══════════════════════════════════════════════════════════════════
 
-QUY TẮC BẮTBUỘC:
+QUY TẮC BẮT BUỘC:
 
-✓ Mỗi dòng = 1 bước. Không gộp nhiều hành động.
-✓ Vai trò: Khách hàng, Hệ thống, Quản lý, HR, Kế toán, Nhân viên kho, Shipper, v.v. (tối đa 4 từ)
-✓ Nếu có rẽ nhánh (Nếu...), PHẢI có cặp: "Nếu A" theo sau là "Nếu B" (XOR gateway 2 nhánh).
-✓ Bước "Đồng thời" → AND Gateway: mỗi tác vụ song song là MỘT DÒNG riêng bắt đầu bằng "Đồng thời:". Các dòng "Đồng thời" liên tiếp sẽ được hiển thị SONG SONG nhau (ngang hàng trên sơ đồ). KHÔNG gộp nhiều tác vụ vào một dòng.
-✓ Nếu có chờ đợi, ghi rõ "Chờ [thời gian]" — ví dụ: "Chờ 30 phút", "Chờ đến 15h".
-✓ Nếu có timeout hoặc escalation, dùng "Nếu sau [thời gian]" — ví dụ: "Nếu sau 2 giờ".
+✓ Mỗi dòng = 1 bước duy nhất. KHÔNG gộp nhiều hành động.
+✓ Tên task = Động từ + Tân ngữ (Ví dụ: "Kiểm tra tồn kho", KHÔNG phải "Tồn kho").
+✓ Vai trò tối đa 4 từ: Khách hàng, Hệ thống, Quản lý, HR, Kế toán, Nhân viên kho, Shipper...
+✓ XOR: luôn có đúng 2 dòng "Nếu A" + "Nếu B" liên tiếp.
+✓ AND: mỗi task song song = 1 dòng "Đồng thời:" riêng (không gộp).
+✓ Timer: "Chờ X phút/giờ/ngày:" (không cần actor, hệ thống tự xử lý).
+✓ Message catch: "Chờ [sự kiện] từ [party]:" (không cần actor).
 ✓ Không dùng markdown, không in đậm, không in nghiêng.
-✓ Không thêm tiêu đề, chú thích, hoặc giải thích bên ngoài danh sách bước.
+✓ Không thêm tiêu đề, chú thích, giải thích ngoài danh sách.
 
 ═══════════════════════════════════════════════════════════════════
 
-VÍ DỤ ĐẦU RA CHUẨN (CÓ EVENT + EXCEPTION):
+VÍ DỤ ĐẦU RA CHUẨN (có đủ loại event):
 
 1. Khách hàng: Đặt hàng trên website
 2. Hệ thống: Gửi email xác nhận đơn hàng
-3. Chờ 30 phút: (chờ khách thanh toán)
+3. Chờ 30 phút:
 4. Nếu thanh toán nhận được: Hệ thống: Cập nhật trạng thái thành "Đã thanh toán"
-5. Nếu hết thời gian 30 phút chưa thanh toán: Hệ thống: Gửi nhắc nhở thanh toán
-6. Chờ 30 phút nữa: (chờ lần 2)
-7. Nếu thanh toán vẫn chưa nhận: Hệ thống: Hủy đơn hàng tự động
-8. Nếu thanh toán đã nhận: Nhân viên kho: Kiểm tra kho
-9. Nếu hết hàng: Hệ thống: Gửi email hủy đơn cho khách
-10. Nếu còn hàng: Nhân viên kho: Chuẩn bị hàng
+5. Nếu chưa thanh toán sau 30 phút: Hệ thống: Gửi nhắc nhở thanh toán
+6. Chờ xác nhận thanh toán từ ngân hàng:
+7. Nếu thanh toán thành công: Nhân viên kho: Kiểm tra kho
+8. Nếu thanh toán thất bại: Hệ thống: Hủy đơn hàng tự động
+9. Nếu còn hàng: Nhân viên kho: Chuẩn bị hàng
+10. Nếu hết hàng: Hệ thống: Gửi email thông báo hết hàng
 11. Đồng thời: Nhân viên kho: Đóng gói hàng
 12. Đồng thời: Kế toán: Tạo phiếu vận chuyển
-13. Shipper: Lấy hàng từ kho
-14. Shipper: Giao hàng cho khách
-15. Khách hàng: Nhận hàng và xác nhận
-16. Hệ thống: Cập nhật trạng thái đơn thành "Hoàn thành"
-17. Gửi thông báo: Ghi nhận đơn hàng thành công
+13. Nếu lỗi đóng gói: Nhân viên kho: Báo cáo lỗi và xử lý thủ công
+14. Shipper: Lấy hàng từ kho
+15. Nếu sau 4 giờ chưa lấy hàng: Quản lý: Liên hệ đối tác vận chuyển khác
+16. Shipper: Giao hàng cho khách
+17. Khách hàng: Nhận hàng và xác nhận
+18. Gửi thông báo: Cập nhật trạng thái đơn thành "Hoàn thành" cho tất cả hệ thống
 
 ═══════════════════════════════════════════════════════════════════
 

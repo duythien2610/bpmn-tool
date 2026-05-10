@@ -10,8 +10,27 @@ const BpmnEngine = (() => {
     receiveTask:'100,80',manualTask:'100,80',scriptTask:'100,80',
     businessRuleTask:'100,80',callActivity:'100,80',subProcess:'140,100',
     startEvent:'36,36',endEvent:'36,36',
+    intermediateCatchEvent:'36,36',intermediateThrowEvent:'36,36',
     exclusiveGateway:'50,50',parallelGateway:'50,50',inclusiveGateway:'50,50',
+    eventBasedGateway:'50,50',
   };
+
+  /* Build BPMN EventDefinition XML for events */
+  function buildEventDef(eventType, duration) {
+    switch((eventType||'').toLowerCase()) {
+      case 'timer':{
+        const d=duration||'PT30M';
+        return `      <bpmn:timerEventDefinition>\n        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${d}</bpmn:timeDuration>\n      </bpmn:timerEventDefinition>`;
+      }
+      case 'message':  return '      <bpmn:messageEventDefinition />';
+      case 'signal':   return '      <bpmn:signalEventDefinition />';
+      case 'error':    return '      <bpmn:errorEventDefinition />';
+      case 'escalation':return '      <bpmn:escalationEventDefinition />';
+      case 'termination':return '      <bpmn:terminateEventDefinition />';
+      case 'compensation':return '      <bpmn:compensateEventDefinition />';
+      default: return '';
+    }
+  }
   const sz = t => { const v=SZ[t]||'100,80'; const [w,h]=v.split(',').map(Number); return {w,h}; };
 
   const POOL_X=100, POOL_LBL=30, LANE_LBL=30;
@@ -145,9 +164,9 @@ const BpmnEngine = (() => {
           nodes._openGw={gid:gwid,yFid};
         }
 
-      /* ── Normal task (no condition) ── */
+      /* ── Normal task / intermediate event ── */
       } else {
-        nodes.push({id:tid,type,name:action,actor});
+        nodes.push({id:tid,type,name:action,actor,eventType:s.eventType||'',eventDuration:s.eventDuration||''});
         // Close any pending single-XOR yes-branch
         if (nodes._openGw) {
           flows.push({id:nodes._openGw.yFid,from:nodes._openGw.gid,to:tid,name:'Yes',condition:'Yes'});
@@ -345,13 +364,28 @@ const BpmnEngine = (() => {
       const w=(tag,a='')=>body?`    <bpmn:${tag} id="${n.id}"${nm}${a}>\n${body}\n    </bpmn:${tag}>`
                                :`    <bpmn:${tag} id="${n.id}"${nm}${a} />`;
       if(n.type==='startEvent') return w('startEvent');
-      if(n.type==='endEvent')   return w('endEvent');
+      if(n.type==='endEvent') {
+        const evd=buildEventDef(n.eventType,n.eventDuration);
+        if(evd) return `    <bpmn:endEvent id="${n.id}"${nm}>\n${body}\n${evd}\n    </bpmn:endEvent>`;
+        return w('endEvent');
+      }
+      if(n.type==='intermediateCatchEvent') {
+        const evd=buildEventDef(n.eventType,n.eventDuration);
+        if(evd) return `    <bpmn:intermediateCatchEvent id="${n.id}"${nm}>\n${body}\n${evd}\n    </bpmn:intermediateCatchEvent>`;
+        return w('intermediateCatchEvent');
+      }
+      if(n.type==='intermediateThrowEvent') {
+        const evd=buildEventDef(n.eventType,n.eventDuration);
+        if(evd) return `    <bpmn:intermediateThrowEvent id="${n.id}"${nm}>\n${body}\n${evd}\n    </bpmn:intermediateThrowEvent>`;
+        return w('intermediateThrowEvent');
+      }
       if(n.type==='exclusiveGateway'){
         const da=xdef[n.id]?` default="${xdef[n.id]}"`:' ';
         return w('exclusiveGateway',` isMarkerVisible="true"${da}`);
       }
       if(n.type==='parallelGateway')  return w('parallelGateway');
       if(n.type==='inclusiveGateway') return w('inclusiveGateway');
+      if(n.type==='eventBasedGateway') return w('eventBasedGateway');
       return w(n.type);
     }).join('\n');
 

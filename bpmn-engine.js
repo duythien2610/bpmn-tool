@@ -209,7 +209,7 @@ const BpmnEngine = (() => {
 
   function assignPos(nodes, flows, actors, solo) {
     const baseLH=solo?LANE_SOLO:LANE_H;
-    const REJ_OFFSET=95; // vertical offset for reject row below main flow
+    const REJ_ABOVE=90; // extra space at TOP of lane for above-gateway reject row
     const x0=POOL_X+POOL_LBL+(solo?0:LANE_LBL)+GAP;
     let cx=x0, brMaxX=0;
     const pos={};
@@ -218,17 +218,17 @@ const BpmnEngine = (() => {
     const flowFrom={};
     flows.forEach(f=>{flowFrom[f.to]=f.from;});
 
-    // Count reject items per lane to know how much extra height each lane needs
+    // Count reject items per lane
     const rejPerLane={};
     actors.forEach(a=>{rejPerLane[a]=0;});
     nodes.forEach(n=>{
       if(n.isReject && n.actor && rejPerLane[n.actor]!==undefined) rejPerLane[n.actor]++;
     });
 
-    // Compute each lane's height: base + extra for reject rows
+    // Lane height: add space at top for reject row (reject goes ABOVE main flow)
     const laneH={};
     actors.forEach(a=>{
-      laneH[a] = rejPerLane[a]>0 ? baseLH+REJ_OFFSET : baseLH;
+      laneH[a] = rejPerLane[a]>0 ? baseLH+REJ_ABOVE : baseLH;
     });
 
     // Compute lane top Y (cumulative)
@@ -242,7 +242,10 @@ const BpmnEngine = (() => {
       const {w,h}=sz(n.type);
       const lTop=lt[n.actor]??TOP_Y;
       const thisLH=laneH[n.actor]??baseLH;
-      const lMid = rejPerLane[n.actor]>0 ? lTop+Math.round(baseLH/2) : lTop+Math.round(thisLH/2);
+      // When lane has reject row above, shift main flow DOWN to make room
+      const lMid = rejPerLane[n.actor]>0
+        ? lTop+REJ_ABOVE+Math.round(baseLH/2)  // shifted down past reject area
+        : lTop+Math.round(thisLH/2);
       if (n.isBranch) {
         const ex=cx+w/2, ey=lMid;
         pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
@@ -266,10 +269,12 @@ const BpmnEngine = (() => {
       const {w,h}=sz(n.type);
       const actor=n.actor||actors[0]||'';
       const lTop=lt[actor]??TOP_Y;
-      const rejY=lTop+baseLH+10;
+
+      // reject row: ABOVE main flow, near top of lane
+      const rejY = lTop + 12;
 
       if (n.type!=='endEvent') {
-        // Reject TASK — directly below its gateway
+        // Reject TASK — directly ABOVE its gateway (same cx)
         const gp=(n.gwRef&&pos[n.gwRef])?pos[n.gwRef]:null;
         if (gp) {
           const rx=Math.round(gp.cx-w/2);
@@ -285,12 +290,11 @@ const BpmnEngine = (() => {
         const isGWSrc=srcNode&&srcNode.type&&srcNode.type.includes('Gateway');
 
         if (rp && isGWSrc) {
-          // Source is GATEWAY directly (single conditional: no reject task between)
-          // → place End directly BELOW the gateway (same cx) so straight-down arrow matches
+          // Direct from GW (single conditional) → ABOVE gateway, same cx
           const ex=Math.round(rp.cx-w/2);
           pos[n.id]={x:ex,y:rejY,w,h,cx:Math.round(rp.cx),cy:rejY+Math.round(h/2)};
         } else if (rp) {
-          // Source is a REJECT TASK (binary XOR) → place End to the RIGHT of task
+          // After reject task → to the RIGHT of reject task (same above row)
           const ex=rp.x+rp.w+32;
           pos[n.id]={x:ex,y:rejY,w,h,cx:ex+Math.round(w/2),cy:rejY+Math.round(h/2)};
         } else {
@@ -321,11 +325,11 @@ const BpmnEngine = (() => {
     if(!sp||!tp) return [[0,0],[100,0]];
     const sy=sp.cy, ty=tp.cy, diff=ty-sy;
 
-    // Gateway → reject task directly below: exit BOTTOM → straight DOWN → enter TOP of task
+    // Gateway → reject node ABOVE: exit TOP → straight UP → enter BOTTOM of target
     if (tn&&tn.isReject&&srcGW) {
-      return [[sp.cx, sp.y+sp.h], [sp.cx, tp.y]];
+      return [[sp.cx, sp.y], [tp.cx, tp.y+tp.h]];
     }
-    // Reject task → reject end event: exit RIGHT → straight horizontal → enter LEFT
+    // Reject task → reject end (above row): exit RIGHT → horizontal → enter LEFT
     if (tn&&tn.isReject&&!srcGW) {
       return [[sp.x+sp.w, sp.cy], [tp.x, tp.cy]];
     }

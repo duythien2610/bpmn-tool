@@ -27,7 +27,8 @@ if %ERRORLEVEL% NEQ 0 (
 for /f "tokens=*" %%v in ('node --version') do echo  Node.js: %%v
 
 :: Move to server directory
-cd /d "%~dp0server"
+cd /d "%~dp0"
+cd server
 
 :: Install dependencies if needed
 if not exist "node_modules" (
@@ -52,7 +53,7 @@ echo.
 :: Open browser after 2 seconds  
 start "" cmd /c "timeout /t 2 /nobreak > nul && start http://localhost:3721"
 
-:: Start server
-node server.js
+:: Start server using exact absolute path
+node "%~dp0server\server.js"
 
 pause

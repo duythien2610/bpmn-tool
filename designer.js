@@ -2214,3 +2214,247 @@ document.getElementById('assistant-quick-chips')?.addEventListener('click', (e) 
   // Auto-send the chip prompt
   sendAssistantMessage();
 });
+
+/* ============================================================
+   🔮 GEMINI STUDIO AI WORKSPACE LOGIC
+   ============================================================ */
+
+(function() {
+  const btnOpen = document.getElementById('btn-gemini-studio');
+  const btnClose = document.getElementById('btn-close-gemini-studio');
+  const modal = document.getElementById('gemini-studio-modal');
+  const overlay = document.getElementById('gemini-studio-overlay');
+  
+  if (!btnOpen || !modal || !overlay) return;
+
+  // Open Modal
+  btnOpen.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    
+    // Sync current description to original box
+    const currentDesc = document.getElementById('process-desc')?.value || '';
+    const optOrig = document.getElementById('gsm-opt-original');
+    if (optOrig) optOrig.value = currentDesc;
+    
+    // Reset optimized textbox
+    const optOptimized = document.getElementById('gsm-opt-optimized');
+    if (optOptimized) {
+      optOptimized.value = '';
+    }
+
+    // Hide apply button until generated
+    const btnApplyOpt = document.getElementById('btn-gsm-apply-optimize');
+    if (btnApplyOpt) {
+      btnApplyOpt.classList.add('hidden');
+    }
+  });
+
+  // Close Modal
+  function closeGsmModal() {
+    modal.classList.add('hidden');
+    overlay.classList.add('hidden');
+  }
+  btnClose?.addEventListener('click', closeGsmModal);
+  overlay.addEventListener('click', closeGsmModal);
+
+  // Tab switching
+  const tabs = document.querySelectorAll('.gsm-tab');
+  const contents = document.querySelectorAll('.gsm-tab-content');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const targetTab = tab.dataset.tab;
+      contents.forEach(c => {
+        c.classList.add('hidden');
+        if (c.id === `gsm-content-${targetTab}`) {
+          c.classList.remove('hidden');
+        }
+      });
+    });
+  });
+
+  // Call API helper
+  async function callStudioApi(mode) {
+    const title = document.getElementById('process-title')?.value.trim() || 'My Process';
+    const description = document.getElementById('process-desc')?.value.trim() || '';
+    
+    if (!description) {
+      toast('Hãy nhập Process Description trước khi dùng Gemini Studio!', 'error');
+      return null;
+    }
+
+    const loader = document.getElementById('gsm-loading');
+    loader.classList.remove('hidden');
+
+    try {
+      if (!serverAvailable) {
+        throw new Error('Server đang offline. Gemini Studio cần kết nối API Server để hoạt động!');
+      }
+
+      const res = await fetch(`${API_BASE}/gemini-studio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, title, description }),
+      });
+      const data = await res.json();
+      loader.classList.add('hidden');
+      
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Lỗi xử lý API Gemini');
+      }
+      return data;
+    } catch (e) {
+      loader.classList.add('hidden');
+      toast(e.message, 'error');
+      console.error(e);
+      return null;
+    }
+  }
+
+  // 1. Tab OPTIMIZE Action
+  const btnRunOpt = document.getElementById('btn-gsm-run-optimize');
+  const btnApplyOpt = document.getElementById('btn-gsm-apply-optimize');
+  const optOptimized = document.getElementById('gsm-opt-optimized');
+
+  btnRunOpt?.addEventListener('click', async () => {
+    const data = await callStudioApi('optimize');
+    if (data && data.optimized) {
+      optOptimized.value = data.optimized;
+      if (btnApplyOpt) btnApplyOpt.classList.remove('hidden');
+      toast('✨ Đã tối ưu hóa cú pháp thành công!', 'success');
+    }
+  });
+
+  btnApplyOpt?.addEventListener('click', () => {
+    const optimizedVal = optOptimized.value.trim();
+    if (!optimizedVal) return;
+
+    const descEl = document.getElementById('process-desc');
+    if (descEl) {
+      descEl.value = optimizedVal;
+      // Trigger Live Parse Preview change
+      descEl.dispatchEvent(new Event('input', { bubbles: true }));
+      updatePromptWorkspace();
+    }
+    closeGsmModal();
+    toast('✅ Đã áp dụng quy trình tối ưu vào Editor!', 'success');
+  });
+
+  // 2. Tab EXCEPTIONS Action
+  const btnRunExceptions = document.getElementById('btn-gsm-run-exceptions');
+  const listExceptions = document.getElementById('gsm-exceptions-results');
+
+  btnRunExceptions?.addEventListener('click', async () => {
+    listExceptions.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-secondary)">⏳ Đang tìm kịch bản ngoại lệ...</div>';
+    const data = await callStudioApi('exceptions');
+    if (data && Array.isArray(data.exceptions)) {
+      if (data.exceptions.length === 0) {
+        listExceptions.innerHTML = '<div class="gsm-results-empty">Quy trình đã khá hoàn thiện, không phát hiện lỗ hổng lớn!</div>';
+        return;
+      }
+
+      listExceptions.innerHTML = data.exceptions.map((ex, idx) => `
+        <div class="gsm-results-item">
+          <div class="gsm-results-main">
+            <span class="gsm-results-scenario">${idx + 1}. ${esc(ex.scenario)}</span>
+            <span class="gsm-results-reason">💡 Tại sao cần: ${esc(ex.reason)}</span>
+            <span class="gsm-results-code">${esc(ex.syntax)}</span>
+          </div>
+          <button class="btn-gsm-insert" data-syntax="${esc(ex.syntax)}">Chèn thêm →</button>
+        </div>
+      `).join('');
+
+      // Wire up insert buttons
+      listExceptions.querySelectorAll('.btn-gsm-insert').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const syntax = btn.dataset.syntax;
+          const descEl = document.getElementById('process-desc');
+          if (descEl && syntax) {
+            let current = descEl.value.trim();
+            // Count current lines to add proper numbering
+            const lines = current.split('\n').filter(l => l.trim().length > 0);
+            const lineNum = lines.length + 1;
+            // Clean syntax step number if any
+            const cleanedSyntax = syntax.replace(/^\d+[\.\)]\s*/, '');
+            
+            descEl.value = current + `\n${lineNum}. ${cleanedSyntax}`;
+            descEl.dispatchEvent(new Event('input', { bubbles: true }));
+            updatePromptWorkspace();
+            toast('✅ Đã chèn ngoại lệ vào quy trình!', 'success');
+            btn.textContent = 'Đã chèn ✓';
+            btn.style.background = 'var(--success-bg)';
+            btn.style.color = 'var(--success)';
+            btn.style.borderColor = 'var(--success)';
+            btn.disabled = true;
+          }
+        });
+      });
+    } else {
+      listExceptions.innerHTML = '<div class="gsm-results-empty">Phân tích thất bại. Thử lại sau.</div>';
+    }
+  });
+
+  // 3. Tab COMPLIANCE Action
+  const btnRunCompliance = document.getElementById('btn-gsm-run-compliance');
+  const complianceResults = document.getElementById('gsm-compliance-results');
+
+  btnRunCompliance?.addEventListener('click', async () => {
+    complianceResults.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-secondary)">⏳ Đang đánh giá logic quy trình...</div>';
+    const data = await callStudioApi('compliance');
+    if (data && data.compliance) {
+      const c = data.compliance;
+      const rating = c.rating || 'Đang đánh giá';
+      const score = c.score || 0;
+      const insights = c.insights || [];
+
+      let insightsHtml = '';
+      if (insights.length === 0) {
+        insightsHtml = '<div class="gsm-results-empty">Quy trình tuân thủ logic 100%, không phát hiện cảnh báo nào!</div>';
+      } else {
+        insightsHtml = `
+          <div class="gsm-compliance-cards">
+            ${insights.map(i => `
+              <div class="gsm-compliance-card">
+                <span class="gsm-comp-issue">🔍 Vấn đề: ${esc(i.issue)}</span>
+                <span class="gsm-comp-impact">💥 Tác động: ${esc(i.impact)}</span>
+                <span class="gsm-comp-suggestion">💡 Gợi ý khắc phục: ${esc(i.suggestion)}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      complianceResults.innerHTML = `
+        <div class="gsm-scorecard">
+          <div class="gsm-score-circle">
+            <span class="gsm-score-val">${score}</span>
+            <span class="gsm-score-lbl">Score</span>
+          </div>
+          <div class="gsm-scorecard-desc">
+            <span class="gsm-scorecard-title">Kết quả đánh giá Logic</span>
+            <span class="gsm-scorecard-rating">Hạng chất lượng: <strong>${esc(rating)}</strong></span>
+          </div>
+        </div>
+        ${insightsHtml}
+      `;
+    } else {
+      complianceResults.innerHTML = '<div class="gsm-results-empty">Đánh giá thất bại. Thử lại sau.</div>';
+    }
+  });
+
+  // Esc closes Gemini Studio Modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+      closeGsmModal();
+    }
+  });
+
+  // Helper function to escape HTML entities safely
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+})();

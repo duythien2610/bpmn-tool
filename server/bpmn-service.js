@@ -165,6 +165,7 @@ function buildFlow(steps, actors) {
           name: branch.action,
           actor: branch.actor,
           isBranch: true,
+          gwRef: splitId,
           eventType: branch.eventType,
           jobType: branch.jobType,
           retries: branch.retries,
@@ -345,8 +346,39 @@ function assignPositions(nodes, flows, actors, isSoloLane) {
     }
   });
 
+  // Calculate branch groups and determine vertical index offsets
+  const branchGroups = {};
+  nodes.forEach(node => {
+    if (node && node.isBranch && node.gwRef) {
+      const key = `${node.gwRef}_${node.actor}`;
+      if (!branchGroups[key]) branchGroups[key] = [];
+      branchGroups[key].push(node);
+    }
+  });
+
+  Object.values(branchGroups).forEach(group => {
+    group.forEach((node, idx) => {
+      node.branchIdxInLane = idx;
+      node.totalBranchesInLane = group.length;
+    });
+  });
+
+  const maxBranchesPerLane = {};
+  actors.forEach(actor => { maxBranchesPerLane[actor] = 1; });
+  Object.entries(branchGroups).forEach(([key, group]) => {
+    const actor = key.substring(key.indexOf('_') + 1);
+    if (maxBranchesPerLane[actor] !== undefined) {
+      maxBranchesPerLane[actor] = Math.max(maxBranchesPerLane[actor], group.length);
+    }
+  });
+
   actors.forEach(actor => {
-    laneHeights[actor] = rejectPerLane[actor] > 0 ? baseLaneHeight + REJECT_OFFSET_Y : baseLaneHeight;
+    let height = rejectPerLane[actor] > 0 ? baseLaneHeight + REJECT_OFFSET_Y : baseLaneHeight;
+    const extraBranches = maxBranchesPerLane[actor] || 1;
+    if (extraBranches > 1) {
+      height += (extraBranches - 1) * 90; // scale lane height
+    }
+    laneHeights[actor] = height;
   });
 
   let accumulatedY = TOP_Y;
@@ -358,11 +390,14 @@ function assignPositions(nodes, flows, actors, isSoloLane) {
   nodes.forEach(node => {
     const actor = node.actor || actors[0];
     const laneStart = laneTop[actor] ?? TOP_Y;
-    const laneHeight = laneHeights[actor] ?? baseLaneHeight;
     const { w, h } = elSize(node.type);
+
+    // Maintain a stable main-line center logic excluding branch expansion
+    const baseLH = rejectPerLane[actor] > 0 ? baseLaneHeight + REJECT_OFFSET_Y : baseLaneHeight;
     const centerY = rejectPerLane[actor] > 0
       ? laneStart + Math.round(baseLaneHeight / 2)
-      : laneStart + Math.round(laneHeight / 2);
+      : laneStart + Math.round(baseLH / 2);
+
     const rejectRowY = laneStart + baseLaneHeight + 10;
 
     if (node.isReject && node.type !== 'endEvent') {
@@ -387,8 +422,14 @@ function assignPositions(nodes, flows, actors, isSoloLane) {
 
     if (node.isBranch) {
       const x = currentX;
-      const y = Math.round(centerY - h / 2);
-      positions[node.id] = { x, y, w, h, cx: x + Math.round(w / 2), cy: centerY };
+      let targetCenterY = centerY;
+      if (node.totalBranchesInLane > 1) {
+        const spacing = 90;
+        const offset = (node.branchIdxInLane - (node.totalBranchesInLane - 1) / 2) * spacing;
+        targetCenterY = centerY + offset;
+      }
+      const y = Math.round(targetCenterY - h / 2);
+      positions[node.id] = { x, y, w, h, cx: x + Math.round(w / 2), cy: targetCenterY };
       branchMaxX = Math.max(branchMaxX, x + w);
       return;
     }

@@ -114,7 +114,7 @@ const BpmnEngine = (() => {
 
         allParallel.forEach(b => {
           const bid = uid('T');
-          nodes.push({id:bid, type:b.type, name:b.action, actor:b.actor, isBranch:true});
+          nodes.push({id:bid, type:b.type, name:b.action, actor:b.actor, isBranch:true, gwRef:spid});
           flows.push({id:uid('F'), from:spid, to:bid});
           flows.push({id:uid('F'), from:bid, to:jnid});
         });
@@ -225,10 +225,41 @@ const BpmnEngine = (() => {
       if(n.isReject && n.actor && rejPerLane[n.actor]!==undefined) rejPerLane[n.actor]++;
     });
 
-    // Lane height: add space at top for reject row (reject goes ABOVE main flow)
+    // Calculate branch groups and determine vertical index offsets
+    const branchGroups = {};
+    nodes.forEach(n => {
+      if (n && n.isBranch && n.gwRef) {
+        const key = `${n.gwRef}_${n.actor}`;
+        if (!branchGroups[key]) branchGroups[key] = [];
+        branchGroups[key].push(n);
+      }
+    });
+
+    Object.values(branchGroups).forEach(group => {
+      group.forEach((n, idx) => {
+        n.branchIdxInLane = idx;
+        n.totalBranchesInLane = group.length;
+      });
+    });
+
+    const maxBranchesPerLane = {};
+    actors.forEach(a => { maxBranchesPerLane[a] = 1; });
+    Object.entries(branchGroups).forEach(([key, group]) => {
+      const actor = key.substring(key.indexOf('_') + 1);
+      if (maxBranchesPerLane[actor] !== undefined) {
+        maxBranchesPerLane[actor] = Math.max(maxBranchesPerLane[actor], group.length);
+      }
+    });
+
+    // Lane height: add space at top for reject row and extra space for parallel branches
     const laneH={};
     actors.forEach(a=>{
-      laneH[a] = rejPerLane[a]>0 ? baseLH+REJ_ABOVE : baseLH;
+      let h = rejPerLane[a]>0 ? baseLH+REJ_ABOVE : baseLH;
+      const extraBranches = maxBranchesPerLane[a] || 1;
+      if (extraBranches > 1) {
+        h += (extraBranches - 1) * 90; // scale lane height
+      }
+      laneH[a] = h;
     });
 
     // Compute lane top Y (cumulative)
@@ -241,14 +272,22 @@ const BpmnEngine = (() => {
       if(typeof n!=='object'||!n.id||n.isReject) return;
       const {w,h}=sz(n.type);
       const lTop=lt[n.actor]??TOP_Y;
-      const thisLH=laneH[n.actor]??baseLH;
-      // When lane has reject row above, shift main flow DOWN to make room
+
+      // Maintain a stable main-line center logic excluding branch expansion
+      const baseLH_withRej = rejPerLane[n.actor]>0 ? baseLH+REJ_ABOVE : baseLH;
       const lMid = rejPerLane[n.actor]>0
         ? lTop+REJ_ABOVE+Math.round(baseLH/2)  // shifted down past reject area
-        : lTop+Math.round(thisLH/2);
+        : lTop+Math.round(baseLH_withRej/2);
+
       if (n.isBranch) {
-        const ex=cx+w/2, ey=lMid;
-        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(ey-h/2),w,h,cx:Math.round(ex),cy:Math.round(ey)};
+        const ex=cx+w/2;
+        let targetCenterY = lMid;
+        if (n.totalBranchesInLane > 1) {
+          const spacing = 90;
+          const offset = (n.branchIdxInLane - (n.totalBranchesInLane - 1) / 2) * spacing;
+          targetCenterY = lMid + offset;
+        }
+        pos[n.id]={x:Math.round(ex-w/2),y:Math.round(targetCenterY-h/2),w,h,cx:Math.round(ex),cy:targetCenterY};
         brMaxX=Math.max(brMaxX, cx+w);
       } else if (n.isJoin) {
         const jx=Math.max(cx, brMaxX+GAP);

@@ -1,602 +1,229 @@
-# BPMN 2.0 (Camunda) — Cheat Sheet & Best Practice Guide
+Business Rules Analysis: Practical Guide for Business Analysts
+Introduction
+Business Rules are one of the most critical—and often underestimated—areas in Business Analysis. In reality, many project issues originate from misunderstanding, missing, or poorly managed Business Rules.
 
----
+Based on BABOK v3, insights from the BA community, and my own real‑world experience working on complex system projects, this article provides a complete and practical view of what Business Rules are, why they matter, and how to analyse them effectively.
 
-# 1. BPMN 2.0 LÀ GÌ?
+1️⃣ What are Business Rules?
+According to BABOK, Business Rules are the constraints, conditions, and regulations that govern how an organisation operates.
 
-BPMN 2.0 (Business Process Model and Notation) là chuẩn mô hình hóa quy trình nghiệp vụ.
+In simpler words:
 
-Mục tiêu:
-- Business Analyst đọc được
-- Dev đọc được
-- Tester đọc được
-- Có thể automate bằng Camunda
+💡 “Business Rules are the laws of the business.
+💡 Requirements describe how the system enforces those laws.”
 
-BPMN dùng để:
-- Phân tích nghiệp vụ
-- Chuẩn hóa workflow
-- Thiết kế automation
-- Làm tài liệu hệ thống
-- Hỗ trợ dev implement workflow engine
+Business Rules are:
 
----
+Not UI
+Not API logic
+Not requirements
+They exist before any project begins, and they continue to exist long after the project ends.
 
-# 2. CÁC THÀNH PHẦN CỐT LÕI
+Characteristics of Business Rules:
 
----
+✔ Driven by business policy (regulatory, operational, compliance), not system behaviour.
+✔ More stable and long‑lived than functional requirements
+✔ Apply to both human processes and system behaviour.
+✔ Drive the core operational logic of the organisation.
+2️⃣ Types of Business Rules (According to BABOK)
+BABOK defines two major rule categories:
 
-## 2.1 Event (Sự kiện)
+1. Structural Rules
 
-### Start Event
-- Điểm bắt đầu process
-- Chỉ nên có 1 start event chính
+These define meanings, classifications, data constraints, and relationships.
 
-Ví dụ:
-- User submit form
-- Nhận request API
-- Đến lịch cronjob
+Examples (Insurance Domain)
 
-Ký hiệu:
-○
+“A policy must have exactly one primary insured.”
+“Policy numbers must be unique across all product lines.”
+“A claim status of ‘Closed’ can only be assigned when all payout actions are completed.”
+2. Behavioural Rules
 
----
+These describe what is allowed or not allowed.
 
-### End Event
-- Điểm kết thúc process
+Examples (Insurance Domain)
 
-Ví dụ:
-- Hoàn thành đơn hàng
-- Reject hồ sơ
-- Hủy workflow
+“Applicants under age 18 cannot purchase life insurance.”
+“Policies lapse if the premium remains unpaid for 30 days after the due date.”
+“Claims above $10,000 require manual assessor review.”
+3️⃣ Why Business Rules Analysis is Important
+BABOK positions Business Rules as a foundational BA activity — and real‑world practice proves it.
 
-Ký hiệu:
-◎
+✔ 1. Rules drive system behaviour
 
----
+If the rule is wrong → the system logic is wrong.
 
-### Intermediate Event
-Sự kiện xảy ra giữa process.
+✔ 2. Rules outlive requirements
 
-Ví dụ:
-- Chờ thanh toán
-- Chờ email
-- Chờ timer
+Rules remain stable even when the system changes.
 
----
+✔ 3. Rules align the entire team
 
-## 2.2 Task
+Without clear rules:
 
-Task = một hành động đơn lẻ.
+PO interprets differently
+Dev interprets differently
+QA tests differently
+BA documents differently
+→ Misalignment everywhere.
 
-Ví dụ:
-- Nhập thông tin
-- Approve request
-- Gửi email
+✔ 4. Rules drive most change requests
 
-Nguyên tắc:
-- 1 task = 1 hành động duy nhất
-- Không gộp nhiều action
+Around 80% of CRs come from rule changes.
 
-SAI:
-- "Kiểm tra và gửi email"
+✔ 5. Rules support scale
 
-ĐÚNG:
-- "Kiểm tra dữ liệu"
-- "Gửi email"
+A structured rule set enables future expansion without guesswork.
 
----
+4️⃣ Best Practices for Business Rules Analysis & Management
+1. Separate Rules from Requirements ⭐
+💡Rules describe what “business laws” must be true.
+💡Requirements describe how the system enforces it.
 
-## 2.3 Gateway
+-> Avoid mixing business logic with technical implementation.
 
-Gateway dùng để:
-- Rẽ nhánh
-- Gộp luồng
-- Chạy song song
+✔ Best practice:
 
----
+Always ask: “Is this a rule or is this how the system will be built?”
+Trace from rule → requirement (not the other way around)
+Maintain Business Rules in a separate repository.
+Avoid embedding rules directly in user stories.
+Ensure each requirement is traceable to its corresponding Business Rule.
+2. Write Rules Clearly, Atomically, and Declaratively⭐
+BABOK emphasises that rules must be:
 
-# 3. CÁC LOẠI GATEWAY QUAN TRỌNG
-
----
-
-## 3.1 Exclusive Gateway (XOR)
-
-Chỉ đi MỘT nhánh.
-
-Ví dụ:
-- Approved / Rejected
-- Có hàng / Hết hàng
-
-Ký hiệu:
-X
-
-Rule:
-- Luôn có điều kiện rõ ràng
-- Phải cover toàn bộ case
-
-Ví dụ đúng:
-
-IF approved
-→ tiếp tục
-
-IF rejected
-→ kết thúc
-
----
-
-## 3.2 Parallel Gateway (AND)
-
-Chạy song song nhiều task.
-
-Ví dụ:
-- Gửi email
-- Tạo invoice
-- Trừ kho
-
-Ký hiệu:
-+
-
-Rule:
-- Split AND → phải có Merge AND
-- Không được quên join
-
-SAI:
-AND split mà không merge lại.
-
----
-
-## 3.3 Inclusive Gateway (OR)
-
-Có thể chạy 1 hoặc nhiều nhánh.
-
-Ví dụ:
-- Gửi SMS nếu có số điện thoại
-- Gửi email nếu có email
-
-Có thể chạy:
-- SMS
-- Email
-- Hoặc cả hai
-
----
-
-## 3.4 Event-based Gateway
-
-Chờ event xảy ra.
-
-Ví dụ:
-- Chờ user approve
-- Chờ timeout
-- Chờ callback API
-
----
-
-# 4. RULE ĐỐI XỨNG GATEWAY (QUAN TRỌNG)
-
-Đây là thứ BA hay bị sai nhất.
-
----
-
-## 4.1 XOR Split → XOR Merge
-
-ĐÚNG:
-- XOR tách nhánh
-- XOR merge lại
-
-Ví dụ:
-Approve?
-→ Approved
-→ Rejected
-
-Sau đó merge về 1 flow.
-
----
-
-## 4.2 AND Split → AND Merge
-
-BẮT BUỘC.
-
-Nếu tách song song:
-- Task A
-- Task B
-
-Thì phải join lại trước khi đi tiếp.
-
-Sai phổ biến:
-- Tách song song nhưng không join
-→ gây token leak trong Camunda.
-
----
-
-## 4.3 Không merge sai loại gateway
-
-SAI:
-- XOR split
-- AND merge
-
-HOẶC:
-- AND split
-- XOR merge
-
-Rule:
-- Split gì → merge đó.
-
----
-
-# 5. TOKEN LOGIC (RẤT QUAN TRỌNG)
-
-Camunda chạy bằng token.
-
-Mỗi flow = token di chuyển.
-
-AND split:
-- 1 token → nhiều token
-
-AND merge:
-- Chờ đủ token mới đi tiếp
-
-Nếu quên merge:
-- Process treo
-- Process duplicate
-- Deadlock
-
----
-
-# 6. RULE "7 ± 2"
-
-Đây là rule bạn đang nhớ.
-
-Nguồn:
-George Miller — Cognitive Load Theory.
-
----
-
-## BPMN Best Practice
-
-Mỗi diagram:
-- Chỉ nên có khoảng 5 → 9 activity chính
-- Tối đa khoảng 15 task visible cùng lúc
-
-KHÔNG nên:
-- 30+ task trên 1 màn hình
-- Gateway chằng chịt
-
-Nếu quá lớn:
-→ split subprocess.
-
----
-
-# 7. RULE "NO MORE THAN 30 TASKS"
-
-Best practice phổ biến:
-
-1 process:
-- <= 30 task
-
-Nếu lớn hơn:
-- Tách subprocess
-- Tách reusable workflow
-
----
-
-# 8. SUBPROCESS
-
-Dùng khi:
-- Workflow quá dài
-- Logic reusable
-- Logic phức tạp
-
-Ví dụ:
-Main Process
-→ Payment Subprocess
-→ Delivery Subprocess
-
----
-
-# 9. BEST PRACTICE CHO CAMUNDA
-
----
-
-## 9.1 Đặt tên task = Verb + Object
-
-ĐÚNG:
-- Validate Order
-- Send Email
-- Approve Request
-
-SAI:
-- Email
-- Request
-- Process data
-
----
-
-## 9.2 Không crossing line quá nhiều
-
-Nếu line giao nhau:
-- Refactor flow
-- Dùng subprocess
-
----
-
-## 9.3 Không dùng quá nhiều gateway liên tiếp
-
-SAI:
-XOR → XOR → XOR → XOR
-
-ĐÚNG:
-- Gom logic
-- Tách subprocess
-
----
-
-## 9.4 Một process chỉ nên có:
-- 1 happy path rõ ràng
-- Exception flow riêng
-
----
-
-## 9.5 Exception flow luôn explicit
-
-Ví dụ:
-- Payment failed
-- Timeout
-- API error
-
-Không được implicit.
-
----
-
-# 10. TIMER & SLA RULE
-
----
-
-## Timer Event
-
-Dùng để:
-- Retry
-- Reminder
-- Escalation
-
-Ví dụ:
-- Chờ 30 phút
-- Chờ đến 15h
-
----
-
-## SLA Rule
-
-Ví dụ:
-- Sau 2 giờ chưa approve
-→ escalate manager
-
-Đây là boundary timer event.
-
----
-
-# 11. ERROR HANDLING RULE
-
-Camunda cực kỳ quan trọng phần này.
-
----
-
-## Boundary Error Event
-
-Dùng cho:
-- API fail
-- Payment fail
-- Validation fail
-
-Rule:
-- Luôn có recovery flow
-
-SAI:
-Fail → end process ngay.
-
-ĐÚNG:
-Fail
-→ retry
-→ notify
-→ manual handling
-
----
-
-# 12. MESSAGE EVENT
-
-Dùng khi:
-- Nhận callback
-- Nhận webhook
-- Chờ user action
-
-Ví dụ:
-- Payment callback
-- OTP response
-
----
-
-# 13. SIGNAL EVENT
-
-Broadcast toàn hệ thống.
-
-Ví dụ:
-- System maintenance
-- Global notification
-
----
-
-# 14. USER TASK vs SERVICE TASK
-
----
-
-## User Task
-
-Con người làm.
-
-Ví dụ:
-- Approve request
-- Review document
-
----
-
-## Service Task
-
-Hệ thống tự động.
-
-Ví dụ:
-- Call API
-- Send email
-- Generate PDF
-
----
-
-# 15. BPMN CLEAN DESIGN RULE
-
----
-
-## Một diagram đẹp thường:
-
-✓ Flow từ trái sang phải
-
-✓ Không loop lung tung
-
-✓ Không crossing line
-
-✓ Có happy path rõ ràng
-
-✓ Exception riêng
-
-✓ Gateway đối xứng
-
-✓ Tên task rõ nghĩa
-
-✓ Có SLA nếu cần
-
-✓ Có timeout nếu wait lâu
-
-✓ Có retry logic
-
----
-
-# 16. ANTI-PATTERN PHỔ BIẾN
-
----
-
-## God Process
-
-1 diagram:
-- 100 task
-- mọi thứ nhét chung
-
-→ rất tệ.
-
----
-
-## Missing End Event
-
-Có nhánh không end.
-
-→ token leak.
-
----
-
-## Infinite Loop
-
-Loop không có exit condition.
-
----
-
-## XOR không có default flow
-
-Nếu không condition nào đúng:
-→ process stuck.
-
----
-
-# 17. CAMUNDA-SPECIFIC BEST PRACTICE
-
----
-
-## Async Before / Async After
-
-Dùng cho:
-- API call
-- External system
-
-Để tránh:
-- transaction rollback toàn flow.
-
----
-
-## External Task
-
-Dùng khi:
-- Microservice xử lý riêng.
-
----
-
-## Retry Strategy
-
-Ví dụ:
-- retry 3 lần
-- exponential backoff
-
----
-
-# 18. CHECKLIST REVIEW BPMN
-
-Trước khi bàn giao:
-
-✓ Có Start Event
-
-✓ Có End Event
-
-✓ Gateway đối xứng
-
-✓ Không deadlock
-
-✓ Không token leak
-
-✓ Có exception flow
-
-✓ Có timeout flow
-
-✓ Có SLA flow
-
-✓ Không quá 30 task
-
-✓ Không crossing line nhiều
-
-✓ Task name rõ nghĩa
-
-✓ Có subprocess nếu phức tạp
-
-✓ Happy path dễ đọc
-
-✓ Dev có thể implement
-
----
-
-# 19. CÔNG THỨC BPMN ĐẸP
-
-START
-→ VALIDATE
-→ DECISION
-→ PROCESS
-→ EXCEPTION
-→ NOTIFICATION
-→ END
-
----
-
-# 20. QUY TẮC VÀNG CHO BA
-
-Nếu nhìn BPMN mà:
-- Dev hiểu ngay
-- Tester viết testcase được
-- Business đọc được
-- Không cần giải thích miệng
-
-→ BPMN tốt.
-
-Nếu phải giải thích liên tục:
-→ BPMN đang sai hoặc quá phức tạp.
+Specific
+Clear
+Atomic (one logic per rule)
+Testable
+Written in business vocabulary
+Free of technical details
+✔ Best practice:
+
+One logic per rule, no ambiguity, no technical “how”.
+Written in domain vocabulary.
+Ensure rules are testable (Rules must allow measurable pass/fail conditions.)
+Example
+
+Correct: “A hospitalisation claim is only payable after the waiting period.”
+Incorrect: “The system should check the waiting period field and prevent payout.”
+3. Avoid “Rule Smells”
+Badly written rules cause inconsistency.
+
+Common Rule Smells:
+
+Too many AND/OR conditions
+Too many exceptions
+Ambiguity (“usually”, “if possible”)
+Rules that cannot be validated or tested
+Rules that overlap or contradict others
+Rules that mix processes and constraints
+Rules that depend silently on another system
+✔ Best practice:
+
+Remove vague words, overly complex logic, silent dependencies, and excessive exceptions.
+4. Build & Maintain a Central Business Rules Catalogue ⭐— as early as possible
+An organisation may have hundreds of rules. A project may have dozens.
+If they are not stored in a structured place, chaos begins after just a few sprints.
+
+💡 “Rules are organizational assets, not project assets.”
+
+Common problems:
+
+Rules hidden in emails, Teams chats, verbal discussions…
+Everyone interprets rules differently
+Rules become duplicated, contradictory, or distorted over time.
+✔ Best practice:
+
+Never store rules scattered in: Emails, Chats, or Documents without versioning.
+Create a single source of truth (Confluence/SharePoint) with standardised fields.
+Rule ID
+Description
+Rule Type (Structural/Behavioural)
+Source / SME
+Owner
+Exception
+Status (Draft → Review → Approved → Deprecated)
+Version history
+Traceability (process, requirement, UI, API, DB, testing)
+Build a Business Rules Catalogue — as early as possible (from Sprint 0).
+-> My experience: ever since maintaining the catalogue from sprint 0, misalignment dropped significantly, QA focused better, and UI/API required far fewer reworks.
+
+5. Enforce Governance & Version Control ⭐
+Strong rule governance avoids chaos.
+
+✔ Best practice:
+
+Apply strict version control:
+Log all changes (who → what → why)
+Link rule versions to requirement versions
+Notify impacted teams when a rule changes
+Define clear governance
+Only SME/PO may approve rule updates
+Suggested lifecycle: Draft → In Review → Approved → Deprecated
+-> Without governance, Dev may code one version, QA may test another, and business may explain a third.
+
+6. Conduct 5‑dimension Impact Analysis ⭐ — a BA’s survival skill
+💡 “Impact analysis is not a task — it’s a reflex.”
+
+✔ Best practice — analyse in 5 dimensions:
+
+Every rule change should be evaluated across 5‑dimensions:
+
+Business Process – Which Flows Are Impacted?
+System Logic / API – Which endpoints change?
+Data – Which fields need updates or new validations?
+UI/UX – Which screens or components change?
+QA – Which test cases need adding or editing?
+A tip I always apply:
+
+💡 If a rule hasn’t been traced to at least 3 artifacts → it has NOT been sufficiently analyzed.
+
+7. Business Rule Validation Checklist (this has saved me countless times)
+BA’s job is not just capturing rules — it’s challenging them.
+
+Questions I always use:
+Does the rule have exceptions?
+Is it a business domain or a technical domain?
+Does it conflict with any other rule?
+Does it depend on another system?
+Who is the owner?
+Does it apply system-wide or only to one module?
+Is it compliance-related?
+Can it be represented in a decision table?
+Are there any edge cases?
+This checklist is extremely useful in complex domains like education, insurance, and banking.
+
+8. Prioritise Mutual Agreement over Documentation
+A BA’s job is not writing documents—it’s achieving shared understanding.
+
+After many projects, I’ve realised: Even perfectly written rules fail if the team interprets them differently.
+
+✔ Best practice:
+
+Use real examples, mini-stories, or use cases to explain rules
+Never assume — always confirm using simple language
+Bring rules into retros: identify which rules caused confusion → improve writing style
+Always confirm rules using plain business language.
+9. Use Visual Models (Not just text)
+Some rules are too complex to read line by line.
+
+✔ Best practice:
+
+Decision tables (matrix logic)
+Decision trees (branching logic)
+State diagrams (status-driven rules)
+Conclusion: Business Rules are Strategic Assets
+Business Rules govern how businesses operate and how systems behave.
+Business Rules are not just “logic.”
+
+They are:
+
+Designs better requirements
+Reduces rework
+Avoids conflicts
+Improves system quality
+Aligns stakeholders
+Supports scalability
+Enables compliance
+Mastering Business Rules elevates BA capability and strengthens confidence when working with PO, SME, and technical teams.

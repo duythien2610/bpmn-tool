@@ -214,6 +214,7 @@ Khách hàng nhận hàng và xác nhận."></textarea>
                 <span id="prompt-structure-hint">Tip: add actor at the start of each line for more accurate lanes.</span>
                 <span id="prompt-char-count">0 ký tự</span>
               </div>
+              <div class="prompt-shortcut-hint">⌨️ <kbd>Ctrl</kbd> + <kbd>Enter</kbd> để Analyze ngay</div>
             </div>
 
             <!-- Live Parse Preview -->
@@ -308,12 +309,20 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <strong id="steps-count-label"></strong>
         </div>
       </div>
-      <button class="btn btn-outline btn-sm" id="btn-add-row">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        Add Step
-      </button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="btn-toggle-cols" title="Hiện/ẩn các cột nâng cao (Node ID, Source, BA Note, BR Ref, Requirement)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 4h10M2 7h10M2 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          Columns
+        </button>
+        <button class="btn btn-outline btn-sm" id="btn-add-row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Add Step
+        </button>
+      </div>
     </div>
 
     <div class="logic-summary" id="logic-summary">
@@ -375,11 +384,11 @@ Khách hàng nhận hàng và xác nhận."></textarea>
             <th style="width:130px">Task Type</th>
             <th style="width:140px">Condition (if any)</th>
             <th style="width:110px">Gateway Type</th>
-            <th style="width:220px">Source Sentence</th>
-            <th style="width:110px">BPMN Node ID</th>
-            <th style="width:160px">BA Note</th>
-            <th style="width:120px">BR Ref</th>
-            <th style="width:140px">Requirement / Story</th>
+            <th class="col-advanced" style="width:220px">Source Sentence</th>
+            <th class="col-advanced" style="width:110px">BPMN Node ID</th>
+            <th class="col-advanced" style="width:160px">BA Note</th>
+            <th class="col-advanced" style="width:120px">BR Ref</th>
+            <th class="col-advanced" style="width:140px">Requirement / Story</th>
             <th style="width:40px"></th>
           </tr>
         </thead>
@@ -581,7 +590,15 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           </div>
           <div class="assistant-body">
             <div class="chat-message bot">
-              👋 Chọn một phần tử trên sơ đồ để xem thuộc tính, hoặc nhập lệnh để chỉnh sửa diagram.
+              👋 Chọn một phần tử để xem thuộc tính, hoặc nhập lệnh để chỉnh sửa diagram bằng ngôn ngữ tự nhiên.
+            </div>
+            <!-- Quick-action suggestion chips -->
+            <div class="assistant-quick-chips" id="assistant-quick-chips">
+              <button class="assistant-chip" data-prompt="Add an email notification task after the last step">&quot;Add email notification after last step&quot;</button>
+              <button class="assistant-chip" data-prompt="Thêm một lane mới cho Supervisor">&quot;Thêm lane Supervisor&quot;</button>
+              <button class="assistant-chip" data-prompt="Add a timer boundary event on the approval task">&quot;Add timer on approval task&quot;</button>
+              <button class="assistant-chip" data-prompt="Add a parallel gateway to split into two concurrent tasks">&quot;Add parallel gateway&quot;</button>
+              <button class="assistant-chip" data-prompt="Insert an error end event for the rejection path">&quot;Add error end event&quot;</button>
             </div>
           </div>
           <div class="assistant-footer">

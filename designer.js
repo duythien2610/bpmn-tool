@@ -142,11 +142,15 @@ const API_BASE = isLocal
   : 'https://bpmn-tool-production.up.railway.app/api';
 let serverAvailable = false;
 
+let _serverChecking = false;
 async function checkServer() {
+  if (_serverChecking) return; // guard: prevent concurrent fetches
+  _serverChecking = true;
   try {
     const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
     serverAvailable = r.ok;
   } catch { serverAvailable = false; }
+  finally { _serverChecking = false; }
   updateServerBadge();
 }
 
@@ -174,7 +178,8 @@ const state = {
     checklist: [],
   },
   viewer: null,
-  assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') !== '0',
+  // Default open (false) unless user explicitly closed it ('1')
+  assistantCollapsed: localStorage.getItem('diagram_assistant_collapsed') === '1',
   focusMode: false,
 };
 
@@ -292,8 +297,8 @@ function runQuickFix() {
     toast('✅ Không có lỗi nào cần Quick Fix!', 'success'); return;
   }
   state.steps = fixed;
-  // Re-render steps table
-  renderLogicSummary(state.steps);
+  // Re-render steps table with updated data
+  renderTable(state.steps);
   // Re-run checklist
   const xml = state.xml || '';
   computeBaReview(state.steps, xml);
@@ -424,6 +429,9 @@ function goToStep(n) {
     if (i < n) ind.classList.add('done');
     if (i === n) ind.classList.add('active');
     ind.querySelector('.step-circle').textContent = i < n ? '✓' : String(i);
+    // Make completed steps clickable for navigation
+    ind.style.cursor = i < n ? 'pointer' : (i === n ? 'default' : 'not-allowed');
+    ind.setAttribute('title', i < n ? `Go back to Step ${i}` : '');
   });
   document.getElementById('line-1-2').classList.toggle('done', n > 1);
   document.getElementById('line-2-3').classList.toggle('done', n > 2);
@@ -432,6 +440,16 @@ function goToStep(n) {
     syncAssistantState();
   }
 }
+
+// Stepper click-to-navigate
+document.querySelectorAll('.step-indicator').forEach((ind, idx) => {
+  ind.addEventListener('click', () => {
+    const stepNum = idx + 1;
+    if (stepNum < state.step) {
+      goToStep(stepNum);
+    }
+  });
+});
 
 function syncAssistantState() {
   const assistant = document.getElementById('diagram-assistant');
@@ -497,11 +515,11 @@ function renderTable(steps) {
       <td><select class="table-select" data-field="type">${taskOpts}</select></td>
       <td><input class="table-input" data-field="condition" value="${esc(step.condition || '')}" placeholder="Điều kiện…" /></td>
       <td><select class="table-select" data-field="gatewayType">${gwOpts}</select></td>
-      <td><input class="table-input table-input--source" data-field="sourceText" value="${esc(step.sourceText || '')}" placeholder="Line nguồn..." /></td>
-      <td><input class="table-input table-input--meta" data-field="nodeId" value="${esc(step.nodeId || '')}" placeholder="Task_123" /></td>
-      <td><input class="table-input table-input--meta" data-field="note" value="${esc(step.note || '')}" placeholder="BA note" /></td>
-      <td><input class="table-input table-input--meta" data-field="businessRuleRef" value="${esc(step.businessRuleRef || '')}" placeholder="BR-01" /></td>
-      <td><input class="table-input table-input--meta" data-field="requirementRef" value="${esc(step.requirementRef || '')}" placeholder="US-101" /></td>
+      <td class="col-advanced"><input class="table-input table-input--source" data-field="sourceText" value="${esc(step.sourceText || '')}" placeholder="Line nguồn..." /></td>
+      <td class="col-advanced"><input class="table-input table-input--meta" data-field="nodeId" value="${esc(step.nodeId || '')}" placeholder="Task_123" /></td>
+      <td class="col-advanced"><input class="table-input table-input--meta" data-field="note" value="${esc(step.note || '')}" placeholder="BA note" /></td>
+      <td class="col-advanced"><input class="table-input table-input--meta" data-field="businessRuleRef" value="${esc(step.businessRuleRef || '')}" placeholder="BR-01" /></td>
+      <td class="col-advanced"><input class="table-input table-input--meta" data-field="requirementRef" value="${esc(step.requirementRef || '')}" placeholder="US-101" /></td>
       <td>
         <button class="btn-delete-row" data-idx="${idx}" title="Xóa bước này">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -587,7 +605,18 @@ document.getElementById('btn-add-row').addEventListener('click', () => {
     nodeId: ''
   });
   renderTable(state.steps);
-  document.querySelector('.logic-table-wrap').scrollTop = 9999;
+  // Scroll the table wrap to the bottom to show the new row
+  requestAnimationFrame(() => {
+    const wrap = document.querySelector('.logic-table-wrap');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    // Also focus the actor field of the new row
+    const rows = document.querySelectorAll('#logic-tbody tr');
+    if (rows.length > 0) {
+      const lastRow = rows[rows.length - 1];
+      const actorInput = lastRow.querySelector('[data-field="actor"]');
+      if (actorInput) actorInput.focus();
+    }
+  });
 });
 
 /* ─── EXAMPLE CHIPS ───────────────────────────────────────────── */
@@ -602,8 +631,22 @@ document.querySelectorAll('.chip').forEach(chip => {
   });
 });
 
-document.getElementById('process-title')?.addEventListener('input', updatePromptWorkspace);
+document.getElementById('process-title')?.addEventListener('input', () => {
+  updatePromptWorkspace();
+  // Sync to diagram title display in real-time
+  const title = document.getElementById('process-title').value.trim();
+  const display = document.getElementById('diagram-title-display');
+  if (display && !state.title) display.textContent = title || 'Diagram';
+});
 document.getElementById('process-desc')?.addEventListener('input', updatePromptWorkspace);
+
+// Ctrl+Enter in textarea triggers Analyze
+document.getElementById('process-desc')?.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('btn-analyze')?.click();
+  }
+});
 
 /* ─── STEP 2 → 3: GENERATE ───────────────────────────────────── */
 document.getElementById('btn-generate').addEventListener('click', async () => {
@@ -792,6 +835,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (state.focusMode) {
       setFocusMode(false);
+      // Don't close props panel when exiting focus mode
+      return;
     }
     closePropsPanel();
   }
@@ -865,6 +910,8 @@ document.getElementById('btn-toggle-assistant')?.addEventListener('click', () =>
 function addChatMessage(text, role = 'bot') {
   const body = document.querySelector('.assistant-body');
   if (!body) return;
+  // Mark body as having messages (hides quick-chips)
+  body.classList.add('has-messages');
   const div = document.createElement('div');
   div.className = `chat-message ${role}`;
   div.textContent = text;
@@ -2130,4 +2177,40 @@ document.getElementById('btn-export-png').addEventListener('click', async () => 
   } catch(e) {
     toast('❌ Export error: ' + e.message, 'error');
   }
+});
+
+/* ─── COLUMN TOGGLE ───────────────────────────────────────────── */
+(function() {
+  let advancedVisible = false;
+  const btn = document.getElementById('btn-toggle-cols');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    advancedVisible = !advancedVisible;
+    const table = document.getElementById('logic-table');
+    table?.classList.toggle('show-advanced', advancedVisible);
+    btn.classList.toggle('btn-icon--active', advancedVisible);
+    btn.style.color = advancedVisible ? 'var(--primary)' : '';
+    btn.style.borderColor = advancedVisible ? 'var(--primary-border)' : '';
+    toast(advancedVisible
+      ? '📋 Hiện các cột nâng cao: Source, Node ID, BA Note, BR Ref, Requirement'
+      : '🗂 Đã ẩn cột nâng cao — bảng gọn hơn', 'info');
+  });
+})();
+
+/* ─── ASSISTANT QUICK CHIPS ────────────────────────────────────── */
+document.getElementById('assistant-quick-chips')?.addEventListener('click', (e) => {
+  const chip = e.target.closest('.assistant-chip');
+  if (!chip) return;
+  const prompt = chip.dataset.prompt;
+  if (!prompt) return;
+  const input = document.getElementById('assistant-input');
+  if (!input) return;
+  input.value = prompt;
+  input.focus();
+  // Auto-resize textarea
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  // Auto-send the chip prompt
+  sendAssistantMessage();
 });

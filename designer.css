@@ -30,7 +30,7 @@
   --hdr: 56px;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+/* Note: fonts already loaded via <link> in HTML — @import removed to avoid duplicate round-trip */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1199,10 +1199,16 @@ textarea.input-field { resize: vertical; min-height: 160px; line-height: 1.7; }
   box-shadow: -4px 0 24px rgba(0,0,0,.12);
   z-index: 1001;
   display: flex; flex-direction: column;
-  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  transition: transform .28s cubic-bezier(.4,0,.2,1), opacity .22s var(--ease);
+  transform: translateX(0);
+  opacity: 1;
 }
 .catalog-drawer.hidden {
-  display: none;
+  transform: translateX(360px);
+  opacity: 0;
+  pointer-events: none;
+  /* Keep in DOM for animation — override default display:none */
+  display: flex !important;
 }
 .catalog-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -2630,3 +2636,89 @@ body.focus-bpmn .xml-sidebar {
   line-height: 1;
 }
 .ba-fix-toast__close:hover { color: #fff; }
+
+/* ── Assistant Quick-action Chips ─────────────────────────────── */
+.assistant-quick-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.assistant-chip {
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  background: rgba(37, 99, 235, 0.04);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assistant-chip:hover {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: var(--primary);
+}
+
+/* Hide chips after first message is sent */
+.assistant-body.has-messages .assistant-quick-chips {
+  display: none;
+}
+
+/* ── Keyboard Shortcut Hint ───────────────────────────────────── */
+.prompt-shortcut-hint {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prompt-shortcut-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 0.68rem;
+  font-family: var(--font);
+  font-weight: 600;
+  color: var(--text-secondary);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+}
+
+/* ── Advanced Column Toggle ───────────────────────────────────── */
+/* By default, hide advanced columns */
+.col-advanced {
+  display: none;
+}
+
+/* Show when table has show-advanced class */
+.logic-table.show-advanced .col-advanced,
+.logic-table.show-advanced td.col-advanced {
+  display: table-cell;
+}
+
+/* ── Stepper done state clickable ─────────────────────────────── */
+.step-indicator.done:hover {
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.22);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.1);
+  cursor: pointer;
+}
+
+.step-indicator.done:hover .step-circle {
+  transform: scale(1.05);
+}

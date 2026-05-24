@@ -185,6 +185,7 @@
                 <button class="chip" data-example="leave">🏖 Xin nghỉ phép</button>
                 <button class="chip" data-example="procurement">📦 AND Gateway</button>
                 <button class="chip" data-example="ecommerce_timeout">⏱ Timer Event</button>
+                <button class="chip" data-example="support_ticket_escalation">🚨 Escalation SLA</button>
               </div>
             </div>
 
@@ -1056,6 +1057,10 @@ Khách hàng nhận hàng và xác nhận."></textarea>
         <span class="fgm-actor-chip">Ngân hàng</span>
         <span class="fgm-actor-chip">Nhà cung cấp</span>
         <span class="fgm-actor-chip">Bộ phận tiếp nhận</span>
+        <span class="fgm-actor-chip">Sales</span>
+        <span class="fgm-actor-chip">Marketing</span>
+        <span class="fgm-actor-chip">IT Support</span>
+        <span class="fgm-actor-chip">Kho</span>
         <span class="fgm-actor-chip fgm-actor-chip--hint">+ Bất kỳ vai trò nào khác</span>
       </div>
     </div>
@@ -1068,8 +1073,8 @@ Khách hàng nhận hàng và xác nhận."></textarea>
       </div>
     </div>
     <div class="fgm-section">
-      <div class="fgm-section-title">⏱ Event Types (Sự kiện đặc biệt)</div>
-      <p class="fgm-desc">Bắt đầu dòng với các từ khóa đặc biệt để tạo các loại event:</p>
+      <div class="fgm-section-title">⏱ Event Types — Đầy đủ từ Camunda BPMN 2.0</div>
+      <p class="fgm-desc">Bắt đầu dòng với từ khóa đặc biệt để tạo các loại event chính xác:</p>
       <div class="fgm-rules">
         <div class="fgm-rule">
           <span class="fgm-rule-badge fgm-rule-badge--event">⏱ Timer</span>
@@ -1077,29 +1082,45 @@ Khách hàng nhận hàng và xác nhận."></textarea>
           <span class="fgm-rule-note">Ví dụ: <em>10. Chờ 30 phút: (đợi thanh toán)</em></span>
         </div>
         <div class="fgm-rule">
-          <span class="fgm-rule-badge fgm-rule-badge--event">📨 Message</span>
+          <span class="fgm-rule-badge fgm-rule-badge--event">📨 Message Catch</span>
           <code>Chờ [sự kiện] từ [bên khác]:</code>
           <span class="fgm-rule-note">Ví dụ: <em>5. Chờ xác nhận thanh toán từ ngân hàng:</em></span>
         </div>
         <div class="fgm-rule">
-          <span class="fgm-rule-badge fgm-rule-badge--event">🚨 Escalation</span>
-          <code>Nếu sau [thời gian]:</code>
-          <span class="fgm-rule-note">Ví dụ: <em>6. Nếu sau 4 giờ chưa xử lý: Supervisor: Nâng cấp ticket</em></span>
+          <span class="fgm-rule-badge fgm-rule-badge--event">📤 Gửi / Signal Throw</span>
+          <code>Gửi thông báo: [Chi tiết]</code> hoặc <code>Gửi tín hiệu:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>12. Gửi thông báo: Cập nhật trạng thái đơn hàng cho tất cả hệ thống</em></span>
         </div>
         <div class="fgm-rule">
-          <span class="fgm-rule-badge fgm-rule-badge--event">❌ Error</span>
-          <code>Nếu lỗi [chi tiết]:</code>
-          <span class="fgm-rule-note">Ví dụ: <em>8. Nếu lỗi thanh toán: Kế toán: Liên hệ nhà cung cấp</em></span>
+          <span class="fgm-rule-badge fgm-rule-badge--event">🚨 Escalation Throw</span>
+          <code>Leo thang: [Chi tiết]</code> hoặc <code>Nâng cấp lên: [Người/Nhóm]</code> hoặc <code>Escalate:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>6. Leo thang: Chuyển tới Supervisor xử lý</em></span>
         </div>
         <div class="fgm-rule">
-          <span class="fgm-rule-badge fgm-rule-badge--event">📤 Gửi</span>
-          <code>Gửi thông báo: [Chi tiết]</code>
-          <span class="fgm-rule-note">Ví dụ: <em>12. Gửi thông báo: Hệ thống ghi nhận đơn hàng</em></span>
+          <span class="fgm-rule-badge fgm-rule-badge--event">❌ Error End</span>
+          <code>Báo lỗi: [Mô tả]</code> hoặc <code>Kết thúc lỗi:</code> hoặc <code>Throw error:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>8. Báo lỗi: Thanh toán thất bại — hủy đơn</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">↺ Compensation</span>
+          <code>Hoàn tác: [Mô tả]</code> hoặc <code>Rollback:</code> hoặc <code>Compensate:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>9. Hoàn tác: Hoàn tiền cho khách hàng</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">📃 Conditional Catch</span>
+          <code>Khi điều kiện [mô tả]:</code> hoặc <code>Khi dữ liệu thay đổi:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>7. Khi điều kiện phân xét hoàn tất:</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">🔗 Link</span>
+          <code>Link đến: [bước/nhãn]</code> hoặc <code>Nhảy đến bước [số]:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>15. Link đến: Bước kiểm tra lại</em></span>
         </div>
       </div>
     </div>
   </div>
 </div>
+
 
 <script>
   /* ── FORMAT GUIDE MODAL ── */

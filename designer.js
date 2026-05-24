@@ -92,14 +92,16 @@ const EXAMPLES = {
     desc: `1. Customer: Submit support ticket via portal
 2. System: Send auto-confirmation email and create ticket record
 3. Support Agent: Receive and read ticket notification
-4. Support Agent: Attempt to resolve issue within 4 hours (SLA)
+4. Support Agent: Attempt to resolve issue within SLA window
 5. If issue resolved within 4 hours: Support Agent: Close ticket and mark resolved
-6. If issue NOT resolved after 4 hours: System: Send escalation alert to supervisor
-7. Supervisor: Review unresolved ticket and assign to senior agent if needed
-8. Senior Agent: Investigate complex issue
-9. Senior Agent: Implement solution and update ticket
-10. Customer: Review solution and confirm ticket closure
-11. System: Send satisfaction survey to customer and archive ticket`
+6. If issue NOT resolved after 4 hours: System: Update ticket status to overdue
+7. Leo thang: Chuyển ticket lên Supervisor xử lý khẩn cấp
+8. Supervisor: Review overdue ticket and assign to senior agent
+9. Senior Agent: Investigate and implement solution
+10. Senior Agent: Update ticket with resolution details
+11. Customer: Confirm solution satisfactory
+12. If customer unsatisfied: Báo lỗi: Escalate to engineering — ticket unresolved
+13. System: Send satisfaction survey and archive closed ticket`
   },
   batch_data_import: {
     title: 'Batch Data Import with Error Handling & Retry',
@@ -1520,23 +1522,38 @@ function parseFallback(title, desc) {
 
     // Timer catch: "Chờ 30 phút:", "Chờ 2 giờ:", "Chờ đến ngày 15:"
     const timerCatchRe = /^(ch[oờ]|wait)\s+(\d+\s*(gi[aâ]y|ph[uú]t|gi[oờ]|ng[aà]y|tu[aầ]n|th[aá]ng|second|minute|hour|day)|[dđ][eế]n\s+|until\s+)/i;
-    // Message catch: "Chờ xác nhận từ ngân hàng:"
+    // Message catch: "Chờ xác nhận từ ngân hàng:", "Chờ phê duyệt từ manager"
     const msgCatchRe  = /^(ch[oờ]|wait)\s+(?!\d)\S.*\b(t[uừ]|from)\b/i;
     // Signal/message throw: "Gửi thông báo:", "Broadcast:"
-    const sigThrowRe  = /^(g[uử]i\s+th[oô]ng\s*b[aá]o|broadcast|throw\s+signal|ph[aá]t\s+t[ií]n\s*hi[eệ]u)/i;
+    const sigThrowRe  = /^(g[uử]i\s+th[oô]ng\s*b[aá]o|broadcast|throw\s+signal|ph[aá]t\s+t[ií]n\s*hi[eệ]u|g[uử]i\s+t[ií]n\s*hi[eệ]u)/i;
     // Error end: "Nếu lỗi ...:"
     const errLineRe   = /^(n[eế]u\s+l[oỗ]i|if\s+error)/i;
+    // Escalation: "Leo thang:", "Nâng cấp lên:", "Escalate:"
+    const escalationRe = /^(leo\s*thang|n[aâ]ng\s*c[aấ]p\s*(l[eê]n|cho)|escalat|chuy[eể]n\s*l[eê]n\s*c[aấ]p\s*tr[eê]n)/i;
+    // Error throw/end: "Báo lỗi:", "Throw error:", "Kết thúc lỗi:"
+    const errThrowRe  = /^(b[aá]o\s*l[oỗ]i|throw\s*error|k[eế]t\s*th[uú]c\s*l[oỗ]i|error\s*end|ph[aá]t\s*sinh\s*l[oỗ]i)/i;
+    // Compensation: "Hoàn tác:", "Compensate:", "Rollback:"
+    const compensationRe = /^(ho[aà]n\s*t[aá]c|b[uù]\s*tr[uừ]|compensat|rollback|h[oà]y\s*b[oỏ]\s*giao\s*d[iị]ch)/i;
+    // Conditional catch: "Khi điều kiện:", "Khi dữ liệu thay đổi:"
+    const conditionalRe = /^(khi\s*[dđ]i[eề]u\s*ki[eệ]n|khi\s*d[uữ]\s*li[eệ]u|when\s*condition|conditional\s*catch|khi\s*c[oó]\s*s[uự]\s*ki[eệ]n)/i;
+    // Link intermediate: "Link đến:", "Nhảy đến:", "Go to:"
+    const linkRe      = /^(link\s*[dđ][eế]n|nh[aả]y\s*[dđ][eế]n|go\s*to\s*(step|b[uư][oớ]c)|link\s*catch|link\s*throw)/i;
 
-    const isTimerCatch = timerCatchRe.test(line);
-    const isMsgCatch   = !isTimerCatch && msgCatchRe.test(line);
-    const isSigThrow   = sigThrowRe.test(line);
+    const isTimerCatch   = timerCatchRe.test(line);
+    const isMsgCatch     = !isTimerCatch && msgCatchRe.test(line);
+    const isSigThrow     = sigThrowRe.test(line);
+    const isEscalation   = escalationRe.test(line);
+    const isErrThrow     = errThrowRe.test(line);
+    const isCompensation = compensationRe.test(line);
+    const isConditional  = conditionalRe.test(line);
+    const isLink         = linkRe.test(line);
 
     if (isTimerCatch) {
       // Normalize duration to ISO 8601
-      const dm = line.match(/(\d+)\s*(gi[aâ]y|second|s)/i);
-      const hm = line.match(/(\d+)\s*(gi[oờ]|hour|h)/i);
-      const nm2= line.match(/(\d+)\s*(ng[aà]y|day|d)/i);
-      const pm = line.match(/(\d+)\s*(ph[uú]t|minute|m)/i);
+      const dm  = line.match(/(\d+)\s*(gi[aâ]y|second|s)/i);
+      const hm  = line.match(/(\d+)\s*(gi[oờ]|hour|h)/i);
+      const nm2 = line.match(/(\d+)\s*(ng[aà]y|day|d)/i);
+      const pm  = line.match(/(\d+)\s*(ph[uú]t|minute|m)/i);
       if (dm) eventDuration = `PT${dm[1]}S`;
       else if (hm) eventDuration = `PT${hm[1]}H`;
       else if (nm2) eventDuration = `P${nm2[1]}D`;
@@ -1547,6 +1564,16 @@ function parseFallback(title, desc) {
       eventType = 'message';
     } else if (isSigThrow) {
       eventType = 'signal';
+    } else if (isEscalation) {
+      eventType = 'escalation';
+    } else if (isErrThrow) {
+      eventType = 'error';
+    } else if (isCompensation) {
+      eventType = 'compensation';
+    } else if (isConditional) {
+      eventType = 'conditional';
+    } else if (isLink) {
+      eventType = 'link';
     }
 
     /* 5A. DETECT CONDITIONAL PREFIX & GATEWAY TYPE */
@@ -1617,14 +1644,16 @@ function parseFallback(title, desc) {
     /* 5E. INFER TASK TYPE */
     let type = 'task';
     // Intermediate events take priority
+    const isIntermediateEvent = isTimerCatch || isMsgCatch || isSigThrow ||
+      isEscalation || isErrThrow || isCompensation || isConditional || isLink;
+
     if (isTimerCatch) {
       type = 'intermediateCatchEvent';
-      // Use line text as action if not set
       if (!action || action === bodyText) {
         const colonIdx = line.indexOf(':');
         action = colonIdx !== -1 ? line.substring(0, colonIdx).trim() : line.trim();
       }
-      actor = lastActor; // inherit actor for catch events
+      actor = lastActor;
     } else if (isMsgCatch) {
       type = 'intermediateCatchEvent';
       if (!action || action === bodyText) {
@@ -1634,11 +1663,42 @@ function parseFallback(title, desc) {
       actor = lastActor;
     } else if (isSigThrow) {
       type = 'intermediateThrowEvent';
-      // Extract description after "Gửi thông báo:"
       const colonIdx = line.indexOf(':');
       action = colonIdx !== -1 ? line.substring(colonIdx + 1).trim() : line.trim();
       if (!action) action = line.trim();
-      actor = lastActor; // inherit last actor, NOT a new lane
+      actor = lastActor;
+    } else if (isEscalation) {
+      // Escalation: throw by default (SLA breach, escalate to supervisor)
+      type = 'intermediateThrowEvent';
+      const colonIdx = line.indexOf(':');
+      action = colonIdx !== -1 ? line.substring(colonIdx + 1).trim() : line.replace(escalationRe, '').trim();
+      if (!action) action = 'Escalate';
+      actor = lastActor;
+    } else if (isErrThrow) {
+      // Error: end event or throw event
+      type = 'endEvent';
+      const colonIdx = line.indexOf(':');
+      action = colonIdx !== -1 ? line.substring(colonIdx + 1).trim() : line.replace(errThrowRe, '').trim();
+      if (!action) action = 'Error End';
+      actor = lastActor;
+    } else if (isCompensation) {
+      type = 'intermediateThrowEvent';
+      const colonIdx = line.indexOf(':');
+      action = colonIdx !== -1 ? line.substring(colonIdx + 1).trim() : line.replace(compensationRe, '').trim();
+      if (!action) action = 'Compensate';
+      actor = lastActor;
+    } else if (isConditional) {
+      type = 'intermediateCatchEvent';
+      const colonIdx = line.indexOf(':');
+      action = colonIdx !== -1 ? line.substring(0, colonIdx).trim() : line.trim();
+      actor = lastActor;
+    } else if (isLink) {
+      // Link: catch by default (jumping to a labelled point)
+      type = 'intermediateCatchEvent';
+      const colonIdx = line.indexOf(':');
+      action = colonIdx !== -1 ? line.substring(colonIdx + 1).trim() : line.replace(linkRe, '').trim();
+      if (!action) action = 'Link';
+      actor = lastActor;
     } else {
       for (const { re, t } of TASK_TYPE_RULES) {
         if (re.test(action)) { type = t; break; }

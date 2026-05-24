@@ -23,12 +23,15 @@ const BpmnEngine = (() => {
         const d=duration||'PT30M';
         return `      <bpmn:timerEventDefinition id="${eid}">\n        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${d}</bpmn:timeDuration>\n      </bpmn:timerEventDefinition>`;
       }
-      case 'message':  return `      <bpmn:messageEventDefinition id="${eid}" />`;
-      case 'signal':   return `      <bpmn:signalEventDefinition id="${eid}" />`;
-      case 'error':    return `      <bpmn:errorEventDefinition id="${eid}" />`;
-      case 'escalation':return `      <bpmn:escalationEventDefinition id="${eid}" />`;
-      case 'termination':return `      <bpmn:terminateEventDefinition id="${eid}" />`;
-      case 'compensation':return `      <bpmn:compensateEventDefinition id="${eid}" />`;
+      case 'message':      return `      <bpmn:messageEventDefinition id="${eid}" />`;
+      case 'signal':       return `      <bpmn:signalEventDefinition id="${eid}" />`;
+      case 'error':        return `      <bpmn:errorEventDefinition id="${eid}" />`;
+      case 'escalation':   return `      <bpmn:escalationEventDefinition id="${eid}" />`;
+      case 'termination':  return `      <bpmn:terminateEventDefinition id="${eid}" />`;
+      case 'compensation': return `      <bpmn:compensateEventDefinition id="${eid}" />`;
+      case 'conditional':  return `      <bpmn:conditionalEventDefinition id="${eid}"><bpmn:condition xsi:type="bpmn:tFormalExpression" /></bpmn:conditionalEventDefinition>`;
+      case 'link':         return `      <bpmn:linkEventDefinition id="${eid}" name="" />`;
+      case 'cancel':       return `      <bpmn:cancelEventDefinition id="${eid}" />`;
       default: return '';
     }
   }
@@ -43,13 +46,18 @@ const BpmnEngine = (() => {
     businessruletask:'businessRuleTask',callactivity:'callActivity',subprocess:'subProcess',
     user:'userTask',service:'serviceTask',send:'sendTask',manual:'manualTask',
     receive:'receiveTask',script:'scriptTask',rule:'businessRuleTask',call:'callActivity',
-    // Events
+    // Events (shorthand)
     startevent:'startEvent',endevent:'endEvent',
     intermediatecatchevent:'intermediateCatchEvent',
     intermediatethrowevent:'intermediateThrowEvent',
     // Gateways
     exclusivegateway:'exclusiveGateway',parallelgateway:'parallelGateway',
     inclusivegateway:'inclusiveGateway',eventbasedgateway:'eventBasedGateway',
+    // Extra shorthand aliases from Camunda reference
+    timer:'intermediateCatchEvent',message:'intermediateCatchEvent',
+    signal:'intermediateThrowEvent',escalation:'intermediateThrowEvent',
+    compensation:'intermediateThrowEvent',conditional:'intermediateCatchEvent',
+    link:'intermediateCatchEvent',
   };
   const rtype = t => {
     const key = (t||'task').toLowerCase().replace(/[-_ ]/g,'');

@@ -224,20 +224,43 @@ app.post('/api/gemini-studio', async (req, res) => {
     if (mode === 'optimize') {
       prompt = `Bạn là một chuyên gia phân tích nghiệp vụ (Business Analyst) chuyên về chuẩn hóa quy trình BPMN 2.0.
 Hãy tối ưu hóa bản mô tả quy trình dưới đây thành một danh sách có thứ tự (1, 2, 3...) tuân thủ tuyệt đối quy tắc cú pháp sau:
-- Mỗi bước viết trên một dòng duy nhất có định dạng: "Số. Vai trò: Hành động" (Ví dụ: "1. Khách hàng: Gửi yêu cầu mua hàng")
-- Khi có rẽ nhánh điều kiện (XOR), bắt buộc phải có đúng một cặp dòng "Nếu" liên tiếp. Một dòng cho nhánh chính, một dòng cho nhánh từ chối/ngoại lệ (Ví dụ: "3. Nếu hồ sơ hợp lệ: Quản lý: Phê duyệt" và "4. Nếu hồ sơ không hợp lệ: Hệ thống: Gửi thông báo từ chối")
-- Khi có hành động song song (AND), dùng cú pháp "Số. Đồng thời: Vai trò: Hành động" (Ví dụ: "5. Đồng thời: Nhân viên kho: Đóng gói" và "6. Đồng thời: Kế toán: Xuất hóa đơn")
-- Khi có sự kiện thời gian (Timer), dùng cú pháp "Số. Chờ [thời gian]:" (Ví dụ: "7. Chờ 30 phút:") hoặc "Nếu sau [thời gian] chưa [hành động]: Vai trò: Xử lý"
-- Khi có sự kiện tin nhắn (Message Catch), dùng cú pháp: "Số. Chờ [sự kiện] từ [đối tác]:" (Ví dụ: "8. Chờ phản hồi từ khách hàng:")
 
+=== CÚ PHÁP BẮT BUỘC ===
+
+TASK cơ bản:
+- Mỗi bước: "Số. Vai trò: Hành động" → Ví dụ: "1. Khách hàng: Gửi yêu cầu mua hàng"
+- Vai trò (actor) là tên người/bộ phận thực hiện: Khách hàng, Hệ thống, Quản lý, Kế toán, Kho, HR, Sales, IT Staff...
+
+GATEWAY — XOR (điều kiện rẽ nhánh):
+- Phải có ĐÚNG MỘT CẶP dòng "Nếu" liên tiếp, một cho nhánh chính, một cho nhánh từ chối:
+  "3. Nếu hồ sơ hợp lệ: Quản lý: Phê duyệt"
+  "4. Nếu hồ sơ không hợp lệ: Hệ thống: Gửi thông báo từ chối"
+
+GATEWAY — AND (hành động song song):
+- Dùng "Đồng thời:" cho các nhánh song song:
+  "5. Đồng thời: Nhân viên kho: Đóng gói hàng"
+  "6. Đồng thời: Kế toán: Xuất hóa đơn"
+
+EVENTS — Sự kiện đặc biệt (QUAN TRỌNG — dùng đúng từ khóa để parser nhận diện):
+- Timer Catch:       "7. Chờ 30 phút:" hoặc "Chờ 2 giờ:" hoặc "Chờ đến ngày X:"
+- Message Catch:     "8. Chờ xác nhận từ ngân hàng:" hoặc "Chờ phê duyệt từ Manager:"
+- Signal Throw:      "9. Gửi thông báo: Cập nhật trạng thái cho tất cả hệ thống"
+- Escalation Throw:  "10. Leo thang: Chuyển ticket lên Supervisor xử lý khẩn cấp"
+- Error End Event:   "11. Báo lỗi: Thanh toán thất bại — hủy đơn hàng"
+- Compensation:      "12. Hoàn tác: Hoàn tiền cho khách hàng"
+- Conditional Catch: "13. Khi điều kiện phân xét hoàn tất:"
+- Link Event:        "14. Link đến: Bước kiểm tra lại"
+
+=== YÊU CẦU ===
 TÊN QUY TRÌNH: "${title || 'Process'}"
 MÔ TẢ CỦA NGƯỜI DÙNG:
 "${description || ''}"
 
-Yêu cầu:
 1. Chỉ chỉnh sửa định dạng và cấu trúc câu để tối ưu cho bộ phân tích cú pháp BPMN, tuyệt đối giữ nguyên toàn bộ các bước nghiệp vụ của người dùng.
-2. Sửa lại các câu thiếu vai trò (actor) bằng cách gán cho vai trò hợp lý nhất (ví dụ: "Hệ thống" cho các tác vụ tự động, "Khách hàng" cho hành động của người dùng).
-3. Trả về duy nhất một chuỗi văn bản danh sách các bước đã tối ưu, không có thêm bất kỳ chú thích hay định dạng markdown nào khác.`;
+2. Sửa lại các câu thiếu vai trò (actor) bằng cách gán cho vai trò hợp lý nhất.
+3. Sử dụng đúng event keywords ở trên khi phát hiện timeout/escalation/lỗi/hoàn tác trong mô tả.
+4. Trả về duy nhất một chuỗi văn bản danh sách các bước đã tối ưu, không có thêm bất kỳ chú thích hay định dạng markdown nào khác.`;
+
 
       const result = await model.generateContent(prompt);
       const text = result.response.text().trim();

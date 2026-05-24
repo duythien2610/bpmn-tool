@@ -3,384 +3,1354 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="refresh" content="0; url=designer.html" />
-  <title>BPMN Studio — Redirecting…</title>
-  <meta name="description" content="Nền tảng thiết kế BPMN chuyên nghiệp: chuyển mô tả nghiệp vụ thành sơ đồ Camunda-ready, review logic, chỉnh flow và export XML chuẩn." />
+  <title>Process Designer — BPMN Studio</title>
+  <meta name="description" content="Design professional BPMN 2.0 diagrams from natural language descriptions." />
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <!-- bpmn-js required CSS (fixes thick black arrows, palette, font icons) -->
+  <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.14.0/dist/assets/diagram-js.css" />
+  <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.14.0/dist/assets/bpmn-js.css" />
+  <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.14.0/dist/assets/bpmn-font/css/bpmn.css" />
+  <link rel="stylesheet" href="designer.css" />
 </head>
 <body>
 
-<div class="site-shell">
-  <header class="navbar" id="top">
-    <a href="#top" class="nav-logo">
-      <div class="logo-icon">B</div>
-      <div class="logo-copy">
-        <span class="logo-text">BPMN Studio</span>
-        <span class="logo-subtitle">Camunda-first process workspace</span>
-      </div>
-    </a>
+<!-- ── HEADER ──────────────────────────────────────────────────── -->
+<header class="designer-header">
+  <a href="index.html" class="header-brand">
+    <div class="header-logo">B</div>
+    <span>BPMN Studio</span>
+  </a>
 
-    <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
-      <span></span>
-      <span></span>
-      <span></span>
+  <span class="header-title">Process Designer</span>
+
+  <div class="header-actions">
+    <span id="server-status-badge" class="server-badge offline">⬤ Offline</span>
+    <!-- Process Catalog -->
+    <button class="btn-header" id="btn-catalog" title="Process Catalog — lưu & tải processes">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="9" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="1" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+      </svg>
+      Catalog
     </button>
+    <button class="btn-icon" id="btn-import-bpmn" title="Import file .bpmn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M2 11v2h12v-2M8 2v8M5.5 7.5 8 10l2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <input type="file" id="input-file-bpmn" accept=".bpmn,.xml" style="display:none" />
+  </div>
+</header>
 
-    <div class="nav-menu" id="nav-menu">
-      <nav class="nav-links">
-        <a href="#capabilities">Capabilities</a>
-        <a href="#workflow">Workflow</a>
-        <a href="#workspace">Workspace</a>
-        <a href="#faq">FAQ</a>
-      </nav>
-      <div class="nav-actions">
-        <a href="designer.html" class="btn-secondary btn-secondary--nav">Open Studio</a>
-        <a href="designer.html" class="btn-primary btn-primary--nav">Launch Designer</a>
+<!-- ── PROCESS METADATA BAR ─────────────────────────────────── -->
+<div class="meta-bar" id="meta-bar">
+  <div class="meta-primary">
+    <div class="meta-field">
+      <label class="meta-label">Owner</label>
+      <input class="meta-input" id="meta-owner" type="text" placeholder="e.g. Thiên — BA" />
+    </div>
+    <div class="meta-field">
+      <label class="meta-label">Version</label>
+      <input class="meta-input meta-input--sm" id="meta-version" type="text" placeholder="v1.0" style="width:60px" />
+    </div>
+    <div class="meta-field meta-field--status">
+      <label class="meta-label">Status</label>
+      <div class="meta-status-group" id="meta-status-group">
+        <button class="meta-status-btn" data-status="draft">Draft</button>
+        <button class="meta-status-btn active" data-status="as-is">AS-IS</button>
+        <button class="meta-status-btn" data-status="to-be">TO-BE</button>
+        <button class="meta-status-btn" data-status="approved">Approved</button>
       </div>
     </div>
-  </header>
+  </div>
 
-  <main>
-    <section class="hero">
-      <div class="hero-grid">
-        <div class="hero-copy reveal">
-          <div class="hero-badge">
-            <span class="hero-badge-dot"></span>
-            BPMN 2.0 • Camunda-compatible • AI-assisted
-          </div>
-          <h1>Thiết kế BPMN như một <span>tool chuyên nghiệp</span>, không còn kiểu prompt rồi cầu may.</h1>
-          <p class="hero-desc">
-            BPMN Studio giúp business analyst và team vận hành chuyển mô tả quy trình thành sơ đồ BPMN rõ lane,
-            đúng gateway, có review layer trước khi export. Tối ưu cho Camunda Modeler và cách làm việc thực tế.
-          </p>
-
-          <div class="hero-actions">
-            <a href="designer.html" class="btn-primary">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M3 8h10M9 4.5 12.5 8 9 11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Mở Workspace
-            </a>
-            <a href="#workspace" class="btn-secondary">Xem giao diện</a>
-          </div>
-
-          <div class="hero-metrics">
-            <div class="metric-card">
-              <strong>Prompt → BPMN</strong>
-              <span>Tách actor, lane, gateway và task type trong một flow làm việc liền mạch.</span>
-            </div>
-            <div class="metric-card">
-              <strong>Review trước khi generate</strong>
-              <span>Giảm lỗi parse bằng bảng logic có thể sửa thủ công trước khi dựng XML.</span>
-            </div>
-            <div class="metric-card">
-              <strong>Camunda-ready</strong>
-              <span>Ưu tiên visual, cấu trúc và export phù hợp với Camunda Modeler.</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="hero-panel reveal reveal-delay-1">
-          <div class="panel-window">
-            <div class="panel-window-bar">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-
-            <div class="panel-window-body">
-              <div class="mini-sidebar">
-                <div class="mini-sidebar-group">
-                  <span class="mini-sidebar-label">Studio</span>
-                  <div class="mini-sidebar-item active">Designer</div>
-                  <div class="mini-sidebar-item">Catalog</div>
-                  <div class="mini-sidebar-item">Analysis</div>
-                </div>
-                <div class="mini-sidebar-group">
-                  <span class="mini-sidebar-label">Output</span>
-                  <div class="mini-sidebar-item">Camunda XML</div>
-                  <div class="mini-sidebar-item">PNG Export</div>
-                </div>
-              </div>
-
-              <div class="mini-workspace">
-                <div class="mini-header">
-                  <div>
-                    <span class="mini-kicker">Step 2 Review</span>
-                    <strong>Quy trình duyệt đơn nghỉ phép</strong>
-                  </div>
-                  <div class="mini-pill">4 lanes • 8 steps</div>
-                </div>
-
-                <div class="mini-table">
-                  <div class="mini-table-head">
-                    <span>Actor</span>
-                    <span>Action</span>
-                    <span>Type</span>
-                  </div>
-                  <div class="mini-row">
-                    <span>Nhân viên</span>
-                    <span>Điền form xin nghỉ</span>
-                    <span>User Task</span>
-                  </div>
-                  <div class="mini-row">
-                    <span>Hệ thống</span>
-                    <span>Gửi thông báo cho quản lý</span>
-                    <span>Send Task</span>
-                  </div>
-                  <div class="mini-row">
-                    <span>Quản lý</span>
-                    <span>Xem xét đơn</span>
-                    <span>User Task</span>
-                  </div>
-                  <div class="mini-row mini-row--accent">
-                    <span>HR</span>
-                    <span>Nếu trên 3 ngày: kiểm tra phép còn lại</span>
-                    <span>Gateway + Task</span>
-                  </div>
-                </div>
-
-                <div class="mini-diagram">
-                  <div class="lane-chip">Nhân viên</div>
-                  <div class="diagram-flow">
-                    <div class="node event"></div>
-                    <div class="connector"></div>
-                    <div class="node task"></div>
-                    <div class="connector"></div>
-                    <div class="node gateway"></div>
-                    <div class="connector"></div>
-                    <div class="node end"></div>
-                  </div>
-                  <div class="lane-chip">Quản lý / HR / Hệ thống</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="signal-strip reveal">
-      <div class="signal-item">
-        <span class="signal-label">AI Parsing</span>
-        <strong>Prompt tiếng Việt / Anh</strong>
-      </div>
-      <div class="signal-item">
-        <span class="signal-label">Swimlane Review</span>
-        <strong>Actor-first workflow</strong>
-      </div>
-      <div class="signal-item">
-        <span class="signal-label">Camunda Export</span>
-        <strong>BPMN XML sẵn dùng</strong>
-      </div>
-      <div class="signal-item">
-        <span class="signal-label">Visual Control</span>
-        <strong>Canvas, XML, properties</strong>
-      </div>
-    </section>
-
-    <section class="workflow section-block">
-      <div class="section-intro reveal">
-        <span class="section-kicker">Why This Tool Exists</span>
-        <h2>BA thường bắt đầu từ text, nhưng phần tốn thời gian lại nằm ở việc chuyển text đó thành BPMN có thể review và dùng tiếp.</h2>
-        <p>BPMN Studio được làm để rút ngắn đoạn đường đó: parse mô tả nghiệp vụ, giữ layer review của con người, rồi mới generate BPMN. Mục tiêu không phải thay BA, mà giảm phần vẽ tay lặp lại và làm rõ traceability giữa yêu cầu với sơ đồ.</p>
-      </div>
-    </section>
-
-    <section class="capabilities section-block" id="capabilities">
-      <div class="section-intro reveal">
-        <span class="section-kicker">Capabilities</span>
-        <h2>Không chỉ là BPMN generator, mà là workspace để đi từ mô tả đến artefact có thể dùng thật.</h2>
-        <p>Thiết kế theo flow làm việc của BA: nhập mô tả, rà logic, kiểm soát lane, chỉnh sửa sơ đồ và export cho Camunda.</p>
-      </div>
-
-      <div class="capability-grid">
-        <article class="capability-card reveal">
-          <div class="capability-icon">01</div>
-          <h3>Prompt Intake có cấu trúc</h3>
-          <p>Input workspace có guidance, prompt quality signal và ví dụ mẫu để giảm sai lane ngay từ đầu.</p>
-        </article>
-        <article class="capability-card reveal reveal-delay-1">
-          <div class="capability-icon">02</div>
-          <h3>Logic Review trước khi render</h3>
-          <p>Chỉnh actor, action, điều kiện và task type ở bảng trung gian trước khi commit thành BPMN.</p>
-        </article>
-        <article class="capability-card reveal reveal-delay-2">
-          <div class="capability-icon">03</div>
-          <h3>Camunda-style Visualization</h3>
-          <p>Ưu tiên event, gateway, pool/lane và flow readability theo ngôn ngữ thị giác gần Camunda hơn.</p>
-        </article>
-        <article class="capability-card reveal">
-          <div class="capability-icon">04</div>
-          <h3>Catalog và Metadata</h3>
-          <p>Lưu quy trình, phiên bản, owner và trạng thái AS-IS / TO-BE trong cùng tool.</p>
-        </article>
-        <article class="capability-card reveal reveal-delay-1">
-          <div class="capability-icon">05</div>
-          <h3>XML + PNG Export</h3>
-          <p>Xuất file `.bpmn` chuẩn và hình ảnh phục vụ review nhanh với stakeholder.</p>
-        </article>
-        <article class="capability-card reveal reveal-delay-2">
-          <div class="capability-icon">06</div>
-          <h3>Phù hợp triển khai thật</h3>
-          <p>Kiến trúc frontend + backend tách bạch, có thể chạy trên Vercel và backend service riêng.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="workflow section-block" id="workflow">
-      <div class="section-intro reveal">
-        <span class="section-kicker">Workflow</span>
-        <h2>Một flow 3 lớp: hiểu nghiệp vụ, kiểm soát logic, rồi mới dựng sơ đồ.</h2>
-      </div>
-
-      <div class="workflow-grid">
-        <div class="workflow-rail reveal">
-          <div class="workflow-step active">
-            <span class="workflow-step-num">1</span>
-            <div>
-              <strong>Capture</strong>
-              <p>Nhập prompt mô tả quy trình nghiệp vụ, vai trò và điều kiện.</p>
-            </div>
-          </div>
-          <div class="workflow-step">
-            <span class="workflow-step-num">2</span>
-            <div>
-              <strong>Review</strong>
-              <p>Kiểm tra lane, task type, gateway trước khi render BPMN.</p>
-            </div>
-          </div>
-          <div class="workflow-step">
-            <span class="workflow-step-num">3</span>
-            <div>
-              <strong>Operate</strong>
-              <p>Chỉnh canvas, validate, export XML hoặc PNG cho Camunda và stakeholder.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="workflow-board reveal reveal-delay-1">
-          <div class="workflow-board-head">
-            <strong>Điểm khác biệt</strong>
-            <span>BPMN Studio</span>
-          </div>
-          <div class="workflow-compare">
-            <div class="compare-row">
-              <span>Lane visibility</span>
-              <strong>Rõ từ phase review</strong>
-            </div>
-            <div class="compare-row">
-              <span>Gateway control</span>
-              <strong>Chỉnh được trước khi vẽ</strong>
-            </div>
-            <div class="compare-row">
-              <span>Camunda export</span>
-              <strong>Ưu tiên XML dùng thật</strong>
-            </div>
-            <div class="compare-row">
-              <span>UI model</span>
-              <strong>Workspace thay vì form đơn lẻ</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="workspace-showcase section-block" id="workspace">
-      <div class="section-intro reveal">
-        <span class="section-kicker">Workspace</span>
-        <h2>Thiết kế như một tool nội bộ nghiêm túc: navigation, panels, review signals và canvas control.</h2>
-      </div>
-
-      <div class="showcase-grid">
-        <article class="showcase-card showcase-card--wide reveal">
-          <div class="showcase-copy">
-            <span class="showcase-tag">Prompt Workspace</span>
-            <h3>Step 1 không còn là textarea đơn sơ.</h3>
-            <p>Hero, live stats, checklist và trạng thái prompt giúp người dùng biết mô tả đã đủ tốt để AI tách lane hay chưa.</p>
-          </div>
-          <div class="showcase-art art-prompt">
-            <div class="art-window">
-              <div class="art-line short"></div>
-              <div class="art-line"></div>
-              <div class="art-line"></div>
-              <div class="art-block"></div>
-            </div>
-          </div>
-        </article>
-
-        <article class="showcase-card reveal reveal-delay-1">
-          <span class="showcase-tag">Logic Review</span>
-          <h3>Lane, task, gateway có tín hiệu ngay trước khi generate.</h3>
-          <p>Giảm lỗi parse và giúp BA chỉnh lại flow ở đúng thời điểm.</p>
-        </article>
-
-        <article class="showcase-card reveal reveal-delay-2">
-          <span class="showcase-tag">Diagram Mode</span>
-          <h3>Canvas nổi bật, panel hỗ trợ, XML và properties đồng bộ.</h3>
-          <p>Nhìn như một workspace thực thụ thay vì demo page.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="faq section-block" id="faq">
-      <div class="section-intro reveal">
-        <span class="section-kicker">FAQ</span>
-        <h2>Những gì team thường cần trước khi dùng BPMN Studio trong thực tế.</h2>
-      </div>
-
-      <div class="faq-list">
-        <article class="faq-item reveal">
-          <h3>Có mở được trong Camunda Modeler không?</h3>
-          <p>Có. Tool ưu tiên xuất BPMN XML để mở tiếp trong Camunda Modeler và chỉnh tiếp nếu cần.</p>
-        </article>
-        <article class="faq-item reveal reveal-delay-1">
-          <h3>Có dùng được khi AI parse sai actor không?</h3>
-          <p>Có. Step review cho phép sửa actor/lane trước khi generate, nên người dùng vẫn giữ quyền kiểm soát.</p>
-        </article>
-        <article class="faq-item reveal reveal-delay-2">
-          <h3>Có phù hợp cho demo với sếp hoặc khách hàng?</h3>
-          <p>Có. UI mới được làm theo hướng product tool, có canvas rõ, export PNG/XML và landing page đủ chuyên nghiệp để giới thiệu.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="final-cta reveal">
-      <div class="final-cta-copy">
-        <span class="section-kicker">Start Now</span>
-        <h2>Mở BPMN Studio và bắt đầu dựng quy trình như một sản phẩm nội bộ nghiêm túc.</h2>
-        <p>Từ prompt đầu vào tới BPMN output, toàn bộ flow đã được tổ chức lại để dễ dùng, dễ review và đủ chuyên nghiệp để demo.</p>
-      </div>
-      <div class="final-cta-actions">
-        <a href="designer.html" class="btn-primary">Launch Designer</a>
-        <a href="#top" class="btn-secondary">Back to Top</a>
-      </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="footer-brand">
-      <div class="logo-icon">B</div>
-      <div>
-        <strong>BPMN Studio</strong>
-        <span>Professional BPMN workspace for BA teams</span>
-      </div>
+  <div class="meta-secondary">
+    <div class="meta-field meta-field--ghost">
+      <label class="meta-label">Last Modified</label>
+      <span class="meta-date" id="meta-date">—</span>
     </div>
-    <div class="footer-links">
-      <a href="designer.html">Designer</a>
-      <a href="#capabilities">Capabilities</a>
-      <a href="#workflow">Workflow</a>
-      <a href="#faq">FAQ</a>
+    <div class="meta-field meta-field--action">
+      <button class="btn-meta-save" id="btn-meta-save" title="Save metadata">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M1 9l3 3 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Save Meta
+    </button>
     </div>
-    <p class="footer-note">
-      Built with `bpmn-js`, `bpmn-auto-layout` and a Camunda-oriented workflow.
-    </p>
-  </footer>
+  </div>
 </div>
 
-<script src="app.js"></script>
+<!-- ── STEPPER ──────────────────────────────────────────────────── -->
+<nav class="stepper">
+  <div class="step-indicator" id="step-indicator-1">
+    <div class="step-circle">1</div>
+    <div class="step-copy">
+      <strong>Process Description</strong>
+      <span>Enter business source</span>
+    </div>
+  </div>
+  <div class="step-line" id="line-1-2"></div>
+  <div class="step-indicator" id="step-indicator-2">
+    <div class="step-circle">2</div>
+    <div class="step-copy">
+      <strong>Review Logic</strong>
+      <span>Check lanes &amp; flow</span>
+    </div>
+  </div>
+  <div class="step-line" id="line-2-3"></div>
+  <div class="step-indicator" id="step-indicator-3">
+    <div class="step-circle">3</div>
+    <div class="step-copy">
+      <strong>BPMN Diagram</strong>
+      <span>Edit &amp; Export</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     STEP 1 — PROCESS DESCRIPTION
+═══════════════════════════════════════════════════ -->
+<div class="panel" id="panel-step1">
+  <div class="input-panel">
+    <div class="input-body">
+      <section class="workspace-hero">
+        <div class="workspace-hero-copy">
+          <span class="prompt-guidance-kicker">Step 1 · Capture</span>
+          <h1>Create clear input so AI correctly identifies actors, lanes and condition branches.</h1>
+          <p>Đây là bước nhập liệu nghiệp vụ. Viết theo từng hành động ngắn, actor ở đầu câu, và dùng “Nếu...” cho điều kiện để giảm lỗi parse.</p>
+        </div>
+        <div class="workspace-hero-stats">
+          <div class="hero-stat-card">
+            <strong id="prompt-word-count">0</strong>
+            <span>Words in description</span>
+          </div>
+          <div class="hero-stat-card">
+            <strong id="prompt-line-count">0</strong>
+            <span>Business lines</span>
+          </div>
+          <div class="hero-stat-card hero-stat-card--accent">
+            <strong id="prompt-quality-label">Waiting</strong>
+            <span>Prompt quality</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="input-layout">
+        <div class="input-main">
+          <section class="prompt-guidance">
+            <div class="prompt-guidance-copy">
+              <span class="prompt-guidance-kicker">Input guide</span>
+              <h2>The clearer the roles and condition branches in your prompt, the cleaner the diagram.</h2>
+              <p>Ưu tiên mỗi câu là một hành động, ghi rõ ai làm, và tách điều kiện bằng “Nếu...”.</p>
+            </div>
+            <div class="prompt-guidance-rules">
+              <div class="guidance-card">
+                <strong>Condition (XOR)</strong>
+                <span>Write branches in pairs: <code>If [A]: Actor: Action</code> / <code>If [B]: Actor: Action</code>. Each pair = one XOR gateway with two exclusive branches.</span>
+              </div>
+              <div class="guidance-card">
+                <strong>Parallel (AND)</strong>
+                <span>Each parallel task on its own line: <code>Simultaneously: Actor: Action</code>. All consecutive lines = parallel branches inside one AND split→join.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-card">
+            <div class="form-card-header">
+              <div>
+                <div class="form-card-kicker">Step 1</div>
+                <h3>Process Description nguồn</h3>
+              </div>
+              <div class="form-card-badge" id="prompt-status-badge">Not enough data</div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label" for="process-title">
+                Process Name
+                <span class="input-label-hint">— Required</span>
+              </label>
+              <input class="input-field" type="text" id="process-title"
+                placeholder="e.g. Online Purchase &amp; Delivery Process" />
+            </div>
+
+            <div class="input-group">
+              <div class="input-label">Quick Examples</div>
+              <div class="chips-row">
+                <button class="chip" data-example="purchase">🛒 Mua hàng online</button>
+                <button class="chip" data-example="leave">🏖 Xin nghỉ phép</button>
+                <button class="chip" data-example="procurement">📦 AND Gateway</button>
+                <button class="chip" data-example="ecommerce_timeout">⏱ Timer Event</button>
+                <button class="chip" data-example="support_ticket_escalation">🚨 Escalation SLA</button>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="input-label" for="process-desc" style="margin-bottom: 0;">
+                  Process Description
+                  <span class="input-label-hint">— Step by step, specify actor (Customer, System…)</span>
+                </label>
+                <button type="button" id="btn-format-guide" onclick="openFormatGuide()" title="Xem định dạng chuẩn">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  Xem định dạng
+                </button>
+                <button type="button" id="btn-copy-ai-prompt" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-weight: 600;" title="Copy mẫu Prompt chuẩn để nhờ ChatGPT/Gemini viết hộ">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M5.5 3.5v-1a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-1M4 5.5h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Copy AI Prompt
+                </button>
+                <button type="button" id="btn-gemini-studio" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-weight: 600;" title="🔮 Mở Gemini Studio AI Workspace">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  🔮 Gemini Studio
+                </button>
+              </div>
+              <textarea class="input-field" id="process-desc" rows="9"
+                placeholder="Ví dụ:
+Khách hàng đặt hàng trên website.
+Nhân viên bán hàng nhận đơn hàng và kiểm tra kho.
+Nếu hết hàng: Gửi thông báo hủy đơn cho khách.
+Nếu còn hàng: Đóng gói và chuyển cho shipper.
+Khách hàng nhận hàng và xác nhận."></textarea>
+              <div class="prompt-meta-row">
+                <span id="prompt-structure-hint">Tip: add actor at the start of each line for more accurate lanes.</span>
+                <span id="prompt-char-count">0 ký tự</span>
+              </div>
+              <div class="prompt-shortcut-hint">⌨️ <kbd>Ctrl</kbd> + <kbd>Enter</kbd> để Analyze ngay</div>
+            </div>
+
+            <!-- Live Parse Preview -->
+            <div class="input-group" id="parse-preview-group" style="display:none">
+              <div class="parse-preview-wrap">
+                <div class="parse-preview-header">
+                  <span>👁 Live Parse Preview</span>
+                  <span class="ppe-badge ppe-badge--idle" id="ppe-badge">No data yet</span>
+                </div>
+                <div class="parse-preview-list" id="ppe-list">
+                  <div class="ppe-empty">Enter a description above to preview the parse result...</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="input-side">
+          <section class="side-card side-card--dark">
+            <div class="side-card-kicker">Checklist</div>
+            <h3>Before clicking Analyze</h3>
+            <ul class="side-checklist">
+              <li>Each line should be 1 main action.</li>
+              <li>Actor should be at the start of the sentence.</li>
+              <li>Điều kiện nên viết dạng “Nếu ...: ...”.</li>
+              <li>Luồng tự động nên ghi rõ “Hệ thống”.</li>
+            </ul>
+          </section>
+
+          <section class="side-card">
+            <div class="side-card-kicker">Expected Output</div>
+            <h3>System will generate</h3>
+            <div class="side-preview-list">
+              <div class="side-preview-item">
+                <strong>Lanes by role</strong>
+                <span>Clearly shows responsibilities between users, systems and business units.</span>
+              </div>
+              <div class="side-preview-item">
+                <strong>Review before generating</strong>
+                <span>Edit actors, task types and conditions before generating BPMN.</span>
+              </div>
+              <div class="side-preview-item">
+                <strong>Camunda-ready XML</strong>
+                <span>Ready to open in Camunda Modeler or deploy as workflow.</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div><!-- /input-body -->
+
+    <!-- Footer -->
+    <div class="panel-footer">
+      <button class="btn btn-primary-solid" id="btn-analyze">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 2v4l2.5 2.5M14 8A6 6 0 1 1 2 8a6 6 0 0 1 12 0Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span id="analyze-text">Analyze &amp; Continue</span>
+        <svg class="spinner hidden" id="analyze-spinner" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="60" stroke-dashoffset="40"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     STEP 2 — LOGIC REVIEW
+═══════════════════════════════════════════════════ -->
+<div class="panel hidden" id="panel-step2">
+  <div class="logic-panel">
+    <div class="review-banner">
+      <div>
+        <span class="form-card-kicker">Step 2</span>
+        <h3>Review logic before building BPMN</h3>
+      </div>
+      <p>This is the most important checkpoint to avoid wrong lanes, gateways, or overly merged tasks.</p>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="logic-toolbar">
+      <div class="toolbar-left">
+        <button class="btn btn-ghost btn-sm" id="btn-back-1">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M8.5 10.5 5 7l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Back
+        </button>
+        <div class="toolbar-sep"></div>
+        <div class="toolbar-info">
+          Review and edit steps before generating the diagram.
+          <strong id="steps-count-label"></strong>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="btn-toggle-cols" title="Hiện/ẩn các cột nâng cao (Node ID, Source, BA Note, BR Ref, Requirement)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 4h10M2 7h10M2 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          Columns
+        </button>
+        <button class="btn btn-outline btn-sm" id="btn-add-row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Add Step
+        </button>
+      </div>
+    </div>
+
+    <div class="logic-summary" id="logic-summary">
+      <div class="logic-summary-stat">
+        <span class="logic-summary-label">Lanes</span>
+        <strong id="logic-stat-lanes">0</strong>
+      </div>
+      <div class="logic-summary-stat">
+        <span class="logic-summary-label">Tasks</span>
+        <strong id="logic-stat-tasks">0</strong>
+      </div>
+      <div class="logic-summary-stat">
+        <span class="logic-summary-label">Gateways</span>
+        <strong id="logic-stat-gateways">0</strong>
+      </div>
+      <div class="logic-summary-hint" id="logic-lane-hint">Nhập mô tả để bắt đầu.</div>
+    </div>
+
+    <div class="logic-review-grid">
+      <section class="logic-review-card">
+        <div class="logic-review-card-head">
+          <strong>Parse Review</strong>
+          <span id="parse-review-badge">0 cảnh báo</span>
+        </div>
+        <div id="parse-review-list" class="logic-review-list">
+          <div class="logic-review-empty">Chưa có cảnh báo parse.</div>
+        </div>
+      </section>
+
+      <section class="logic-review-card">
+        <div class="logic-review-card-head">
+          <strong>BA Checklist</strong>
+          <span id="ba-checklist-badge">6 tiêu chí</span>
+        </div>
+        <div class="checklist-actions">
+          <button class="btn-fix btn-fix--quick" id="btn-quick-fix" title="Tự động sửa các lỗi an toàn: tên task thiếu động từ, actor quá dài, task type sai">
+            🔧 Quick Fix
+          </button>
+          <button class="btn-fix btn-fix--suggest" id="btn-suggest-fix" title="Gợi ý cụ thể cho từng cảnh báo — bạn tự quyết định có áp dụng không">
+            💡 Gợi ý Fix
+          </button>
+        </div>
+        <div id="ba-checklist-list" class="logic-review-list">
+          <div class="logic-review-empty">Checklist sẽ xuất hiện sau khi có step.</div>
+        </div>
+        <div id="ba-suggest-panel" class="ba-suggest-panel" style="display:none"></div>
+        <div id="ba-fix-toast" class="ba-fix-toast" style="display:none"></div>
+      </section>
+    </div>
+
+    <!-- Table -->
+    <div class="logic-table-wrap">
+      <table class="logic-table" id="logic-table">
+        <thead>
+          <tr>
+            <th style="width:48px">#</th>
+            <th style="width:140px">Actor / Swimlane</th>
+            <th>Action</th>
+            <th style="width:130px">Task Type</th>
+            <th style="width:140px">Condition (if any)</th>
+            <th style="width:110px">Gateway Type</th>
+            <th class="col-advanced" style="width:220px">Source Sentence</th>
+            <th class="col-advanced" style="width:110px">BPMN Node ID</th>
+            <th class="col-advanced" style="width:160px">BA Note</th>
+            <th class="col-advanced" style="width:120px">BR Ref</th>
+            <th class="col-advanced" style="width:140px">Requirement / Story</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="logic-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="panel-footer">
+      <button class="btn btn-ghost btn-sm" id="btn-back-1b">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M8.5 10.5 5 7l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Back
+      </button>
+      <label class="toggle-pill" title="Tạo sơ đồ không có Pool/Lane (1 process phẳng, như sơ đồ giáo trình BPMN)">
+        <input type="checkbox" id="toggle-single-process">
+        <span class="toggle-pill__track"></span>
+        <span class="toggle-pill__label">⬜ No Lanes</span>
+      </label>
+      <button class="btn btn-primary-solid" id="btn-generate">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <path d="M2 7.5h11M9 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span id="gen-text">Tạo BPMN Diagram</span>
+        <svg class="spinner hidden" id="gen-spinner" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="60" stroke-dashoffset="40"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     STEP 3 — BPMN DIAGRAM
+═══════════════════════════════════════════════════ -->
+<div class="panel hidden" id="panel-step3">
+  <div class="diagram-panel">
+    <div class="review-banner review-banner--diagram">
+      <div>
+        <span class="form-card-kicker">Step 3</span>
+        <h3>Review final BPMN Diagram</h3>
+      </div>
+      <p>Here you can review lanes, sequence flows, events and edit further before validating or exporting.</p>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="diagram-toolbar">
+      <div class="diagram-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="4" width="5" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/>
+          <rect x="9" y="4" width="5" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/>
+          <rect x="5" y="10" width="6" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M4.5 7v1.5H8v1.5M11.5 7v1.5H8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <span id="diagram-title-display">Diagram</span>
+      </div>
+
+      <div class="toolbar-group">
+        <!-- Undo / Redo -->
+        <button class="btn-icon" id="btn-undo" title="Undo (Ctrl+Z)">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M3 7a5 5 0 1 1 .5 4.5M3 7V3.5M3 7H6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="btn-icon" id="btn-redo" title="Redo (Ctrl+Y)">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M12 7a5 5 0 1 0-.5 4.5M12 7V3.5M12 7H8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Zoom tools -->
+        <button class="btn-icon" id="btn-zoom-fit" title="Khớp màn hình (Ctrl+Shift+H)">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M1.5 1.5H5M1.5 1.5V5M13.5 1.5H10M13.5 1.5V5M1.5 13.5H5M1.5 13.5V10M13.5 13.5H10M13.5 13.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="btn-icon" id="btn-zoom-in" title="Phóng to">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M10 10l3 3M6.5 4.5v4M4.5 6.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="btn-icon" id="btn-zoom-out" title="Thu nhỏ">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M10 10l3 3M4.5 6.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <button class="btn-icon" id="btn-focus-mode" title="Focus BPMN Editor">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M1.5 5V1.5H5M10 1.5h3.5V5M13.5 10v3.5H10M5 13.5H1.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Auto-layout -->
+        <button class="btn-icon" id="btn-auto-layout" title="Tự động canh chỉnh layout">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <rect x="1" y="1" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="1" y="11" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="5.5" y="6" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="10" y="1" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="10" y="11" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M3 4v3.5h4.5M3 11V7.5M12 4v3.5H7.5M12 11V7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- Align left -->
+        <button class="btn-icon" id="btn-align-left" title="Căn trái">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 2v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <rect x="3.5" y="4" width="7" height="2.5" rx="1" fill="currentColor" opacity="0.7"/>
+            <rect x="3.5" y="8.5" width="5" height="2.5" rx="1" fill="currentColor" opacity="0.5"/>
+          </svg>
+        </button>
+
+        <!-- Align center horizontal -->
+        <button class="btn-icon" id="btn-align-center" title="Căn giữa ngang">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M7.5 2v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <rect x="2" y="4" width="11" height="2.5" rx="1" fill="currentColor" opacity="0.7"/>
+            <rect x="3.5" y="8.5" width="8" height="2.5" rx="1" fill="currentColor" opacity="0.5"/>
+          </svg>
+        </button>
+
+        <!-- Distribute horizontally -->
+        <button class="btn-icon" id="btn-distribute-h" title="Phân bố đều ngang">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 2v11M13 2v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <rect x="4" y="5" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+          </svg>
+        </button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Analyze -->
+        <button class="btn-icon" id="btn-analyze-diagram" title="Phân tích sơ đồ (QA + Metrics)">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 11l3-4 3 2 3-5 2 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="1" y="1" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+        </button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Toggle Properties Panel -->
+        <button class="btn-icon" id="btn-toggle-props" title="Mở Element Editor" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <rect x="1" y="1" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M10 1v13" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M3 5h4M3 7.5h3M3 10h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- Toggle XML -->
+        <button class="btn-icon" id="btn-toggle-xml" title="Xem XML">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M5 4L2 7.5 5 11M10 4l3 3.5-3 3.5M8.5 3l-2 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Diagram + Sidebars -->
+    <div class="diagram-body">
+      <!-- Canvas -->
+      <div class="diagram-canvas-wrap">
+        <div class="diagram-insight-bar hidden" id="diagram-insight-bar">
+          <span class="diagram-insight-pill" id="diagram-insight-lanes">0 lanes</span>
+          <span class="diagram-insight-pill" id="diagram-insight-steps">0 steps</span>
+          <span class="diagram-insight-pill diagram-insight-pill--accent">Camunda visual mode</span>
+        </div>
+        <div id="bpmn-canvas" class="bpmn-canvas-el"></div>
+        <div class="bpmn-loading" id="bpmn-loading">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="60" stroke-dashoffset="40"/>
+          </svg>
+          <p>Đang render sơ đồ...</p>
+        </div>
+
+        <!-- Diagram Assistant (Floating over canvas) -->
+        <div id="diagram-assistant" class="diagram-assistant">
+          <div class="assistant-header">
+            <div class="assistant-header-left">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+              <div class="assistant-titles">
+                <strong>Diagram Assistant</strong>
+                <span>Edit BPMN via natural language</span>
+              </div>
+            </div>
+            <button class="btn-icon" id="btn-toggle-assistant" title="Thu gọn / mở chatbot" style="width:24px;height:24px;border:none">
+              <svg class="assistant-toggle-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M2 5l5 5 5-5" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div class="assistant-body">
+            <div class="chat-message bot">
+              👋 Chọn một phần tử để xem thuộc tính, hoặc nhập lệnh để chỉnh sửa diagram bằng ngôn ngữ tự nhiên.
+            </div>
+            <!-- Quick-action suggestion chips -->
+            <div class="assistant-quick-chips" id="assistant-quick-chips">
+              <button class="assistant-chip" data-prompt="Add an email notification task after the last step">&quot;Add email notification after last step&quot;</button>
+              <button class="assistant-chip" data-prompt="Thêm một lane mới cho Supervisor">&quot;Thêm lane Supervisor&quot;</button>
+              <button class="assistant-chip" data-prompt="Add a timer boundary event on the approval task">&quot;Add timer on approval task&quot;</button>
+              <button class="assistant-chip" data-prompt="Add a parallel gateway to split into two concurrent tasks">&quot;Add parallel gateway&quot;</button>
+              <button class="assistant-chip" data-prompt="Insert an error end event for the rejection path">&quot;Add error end event&quot;</button>
+            </div>
+          </div>
+          <div class="assistant-footer">
+            <div class="assistant-input-wrap">
+              <textarea id="assistant-input" placeholder="e.g. 'Add Step phê duyệt sau bước 2' hoặc 'Đổi tên task 3 thành Xác nhận đơn hàng'" rows="1"></textarea>
+              <button class="btn-send-message" id="btn-send-assistant">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2L15 22L11 13L2 9L2Z"/></svg>
+              </button>
+            </div>
+            <div class="assistant-hint">Enter to send · Shift+Enter for new line</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- XML Sidebar (hidden by default) -->
+      <div class="xml-sidebar hidden" id="xml-sidebar">
+        <div class="xml-sidebar-header">
+          <span>BPMN 2.0 XML</span>
+          <button class="btn-icon" id="btn-copy-xml" title="Copy XML" style="width:24px;height:24px">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <rect x="1" y="3.5" width="7.5" height="8.5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M4 3V2a1 1 0 0 1 1-1h5.5a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1H9" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+          </button>
+        </div>
+        <pre class="xml-preview" id="xml-preview"></pre>
+      </div>
+
+      <!-- ══ PROPERTIES PANEL (Camunda-style right sidebar) ══ -->
+      <div class="props-overlay hidden" id="props-overlay"></div>
+      <aside class="props-panel hidden" id="props-panel" aria-hidden="true">
+        <!-- Header -->
+        <div class="props-header">
+          <div class="props-header-left">
+            <span class="props-element-icon" id="props-element-icon">⬡</span>
+            <div>
+              <div class="props-element-type" id="props-element-type">No Selection</div>
+              <div class="props-element-id" id="props-element-id">—</div>
+              <div class="props-element-help">Chọn phần tử trên sơ đồ để chỉnh nhanh thuộc tính.</div>
+            </div>
+          </div>
+          <button class="btn-icon" id="btn-close-props" title="Đóng panel" style="width:24px;height:24px;flex-shrink:0">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="props-tabs">
+          <button class="props-tab active" data-tab="general" id="tab-general">General</button>
+          <button class="props-tab" data-tab="details" id="tab-details">Details</button>
+          <button class="props-tab" data-tab="docs" id="tab-docs">Docs</button>
+        </div>
+
+        <!-- TAB: General -->
+        <div class="props-tab-body" id="props-tab-general">
+          <div class="props-empty-state" id="props-no-selection">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <rect x="8" y="14" width="24" height="14" rx="3" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+              <path d="M14 21h12M14 25h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+            </svg>
+            <p>Chọn một phần tử<br/>để xem thuộc tính</p>
+          </div>
+
+          <div class="props-fields hidden" id="props-fields-general">
+            <!-- Name -->
+            <div class="props-field">
+              <label class="props-label" for="prop-name">Name</label>
+              <input class="props-input" id="prop-name" type="text" placeholder="Enter name..." />
+            </div>
+            <!-- ID -->
+            <div class="props-field">
+              <label class="props-label" for="prop-id">ID</label>
+              <input class="props-input" id="prop-id" type="text" placeholder="Element ID" />
+            </div>
+            <!-- Task Type (only for tasks) -->
+            <div class="props-field" id="prop-task-type-group">
+              <label class="props-label">Task Type</label>
+              <div class="props-type-badge" id="prop-type-badge">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Details -->
+        <div class="props-tab-body hidden" id="props-tab-details">
+
+          <!-- ── Execution (User Task) ── -->
+          <div class="props-section-title">Execution — User Task</div>
+          <div class="props-field">
+            <label class="props-label" for="prop-assignee">Assignee <span class="feel-tag">FEEL</span></label>
+            <input class="props-input" id="prop-assignee" type="text" placeholder='e.g. =initiator or "john"' />
+          </div>
+          <div class="props-field">
+            <label class="props-label" for="prop-candidate-groups">Candidate Groups <span class="feel-tag">FEEL</span></label>
+            <input class="props-input" id="prop-candidate-groups" type="text" placeholder='e.g. =["managers","hr"]' />
+          </div>
+          <div class="props-field">
+            <label class="props-label" for="prop-due-date">Due Date <span class="feel-tag">FEEL</span></label>
+            <input class="props-input" id="prop-due-date" type="text" placeholder='e.g. =now() + duration("P3D")' />
+          </div>
+          <div class="props-field">
+            <label class="props-label" for="prop-form-key">Form Key / Ref</label>
+            <input class="props-input" id="prop-form-key" type="text" placeholder="e.g. embedded:app:approve.html" />
+          </div>
+
+          <!-- ── Gateway / Sequence Flow Condition ── -->
+          <div class="props-section-title" style="margin-top:16px">Gateway · Sequence Flow</div>
+          <div class="props-field" id="prop-condition-group">
+            <label class="props-label" for="prop-condition">
+              Condition Expression <span class="feel-tag">FEEL</span>
+            </label>
+            <textarea class="props-input props-textarea props-feel-input" id="prop-condition" rows="3"
+              placeholder='e.g. =amount > 1000&#10;or: =${approved == true}'></textarea>
+            <button class="props-apply-btn" id="btn-apply-condition">Apply to Diagram ✓</button>
+          </div>
+
+          <!-- ── Service Task / Job Worker ── -->
+          <div class="props-section-title" style="margin-top:16px">Service Task · Job Worker</div>
+          <div class="props-field">
+            <label class="props-label" for="prop-job-type">Job Type <span class="feel-tag">Zeebe</span></label>
+            <input class="props-input" id="prop-job-type" type="text" placeholder='e.g. io.camunda:http-json:1 or send-email' />
+          </div>
+          <div class="props-field">
+            <label class="props-label" for="prop-retries">Retries <span class="feel-tag">FEEL</span></label>
+            <input class="props-input" id="prop-retries" type="text" placeholder="e.g. 3 or =retryCount" style="width:80px" />
+          </div>
+
+          <!-- ── I/O Variable Mappings ── -->
+          <div class="props-section-title" style="margin-top:16px">
+            I/O Variable Mappings
+            <span class="feel-tag" style="margin-left:6px">Zeebe</span>
+          </div>
+
+          <!-- Input mappings -->
+          <div class="props-field">
+            <label class="props-label">Input Variables</label>
+            <div id="inputs-list" class="io-list"></div>
+            <button class="props-add-btn" id="btn-add-input">+ Add Input</button>
+          </div>
+
+          <!-- Output mappings -->
+          <div class="props-field" style="margin-top:8px">
+            <label class="props-label">Output Variables</label>
+            <div id="outputs-list" class="io-list"></div>
+            <button class="props-add-btn" id="btn-add-output">+ Add Output</button>
+          </div>
+        </div>
+
+        <!-- TAB: Docs -->
+        <div class="props-tab-body hidden" id="props-tab-docs">
+          <div class="props-field">
+            <label class="props-label" for="prop-docs">Documentation / Notes</label>
+            <textarea class="props-input props-textarea" id="prop-docs" rows="7"
+              placeholder="Ghi chú về phần tử này..."></textarea>
+          </div>
+          <div class="props-field">
+            <label class="props-label" for="prop-ext-ref">External Reference / Jira</label>
+            <input class="props-input" id="prop-ext-ref" type="text"
+              placeholder="URL hoặc mã ticket, e.g. PROJ-123" />
+          </div>
+
+          <!-- Element color -->
+          <div class="props-section-title" style="margin-top:16px">Appearance</div>
+          <div class="props-field">
+            <label class="props-label">Fill Color</label>
+            <div class="color-row" id="color-palette">
+              <button class="color-swatch" data-color="#ffffff" style="background:#fff" title="White (default)"></button>
+              <button class="color-swatch" data-color="#dbeafe" style="background:#dbeafe" title="Blue tint"></button>
+              <button class="color-swatch" data-color="#dcfce7" style="background:#dcfce7" title="Green tint"></button>
+              <button class="color-swatch" data-color="#fef9c3" style="background:#fef9c3" title="Yellow tint"></button>
+              <button class="color-swatch" data-color="#fee2e2" style="background:#fee2e2" title="Red tint"></button>
+              <button class="color-swatch" data-color="#f3e8ff" style="background:#f3e8ff" title="Purple tint"></button>
+              <button class="color-swatch" data-color="#ffedd5" style="background:#ffedd5" title="Orange tint"></button>
+            </div>
+          </div>
+          <div class="props-field">
+            <label class="props-label">Stroke Color</label>
+            <div class="color-row" id="stroke-palette">
+              <button class="color-swatch" data-color="default" style="background:linear-gradient(135deg,#999 50%,transparent 50%)" title="Default"></button>
+              <button class="color-swatch" data-color="#1d4ed8" style="background:#1d4ed8" title="Blue"></button>
+              <button class="color-swatch" data-color="#15803d" style="background:#15803d" title="Green"></button>
+              <button class="color-swatch" data-color="#b45309" style="background:#b45309" title="Amber"></button>
+              <button class="color-swatch" data-color="#dc2626" style="background:#dc2626" title="Red"></button>
+              <button class="color-swatch" data-color="#7c3aed" style="background:#7c3aed" title="Purple"></button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Footer -->
+    <div class="diagram-footer">
+      <div class="footer-left">
+        <button class="btn btn-ghost btn-sm" id="btn-back-2">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M8.5 10.5 5 7l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Edit Logic
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btn-start-over">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M11 3a6 6 0 1 0 1.5 4M11 3V1M11 3H9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Start Over
+        </button>
+      </div>
+      <div class="footer-right">
+        <button class="btn btn-ghost btn-sm" id="btn-validate-diagram" title="Validate BPMN 2.0 compliance">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 7l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Validate
+        </button>
+        <button class="btn btn-outline" id="btn-export-png" title="Export as PNG image">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <rect x="1" y="3" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="5" cy="7" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M1 10l3.5-3.5 2.5 2.5 2-2 4 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Export PNG
+        </button>
+        <button class="btn btn-outline" id="btn-save">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 13h11M7.5 2v8M5 7.5l2.5 2.5 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Lưu
+        </button>
+        <button class="btn btn-outline" id="btn-export-ba-brief" title="Export BA summary, traceability and checklist">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M3 2.5h7l2 2v8H3v-10ZM5 6.5h5M5 8.8h5M5 11.1h3.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Export BA Brief
+        </button>
+        <button class="btn btn-success" id="btn-download">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 13h11M7.5 2v8M5 7.5l2.5 2.5 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Download .bpmn
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── TOAST CONTAINER ──────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── PROCESS CATALOG MODAL ─────────────────────────────────────── -->
+<div class="catalog-overlay hidden" id="catalog-overlay"></div>
+<aside class="catalog-drawer hidden" id="catalog-drawer">
+  <div class="catalog-header">
+    <div class="catalog-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="10" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="1" y="10" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="10" y="10" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>
+      </svg>
+      Process Catalog
+    </div>
+    <button class="btn-icon" id="btn-close-catalog" style="width:24px;height:24px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div class="catalog-search">
+    <input class="catalog-search-input" id="catalog-search" type="text" placeholder="🔍 Search processes..." />
+  </div>
+  <div class="catalog-list" id="catalog-list">
+    <div class="catalog-empty">No saved processes yet.<br/>Create a diagram and click <strong>Lưu</strong> to add to catalog.</div>
+  </div>
+  <div class="catalog-footer">
+    <button class="btn btn-ghost btn-sm" id="btn-catalog-clear">Clear all</button>
+    <span class="catalog-count" id="catalog-count">0 processes</span>
+  </div>
+</aside>
+
+<!-- ── COMPARE MODAL ─────────────────────────────────────────────── -->
+<div class="analyze-modal-overlay hidden" id="compare-overlay"></div>
+<div class="analyze-modal hidden" id="compare-modal">
+  <div class="analyze-modal-header">
+    <span>🔀 AS-IS / TO-BE Compare</span>
+    <button class="btn-icon" id="btn-close-compare" style="width:24px;height:24px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="analyze-modal-body" id="compare-modal-body">Loading...</div>
+</div>
+
+<!-- ── ANALYZE MODAL ─────────────────────────────────────────────── -->
+<div class="analyze-modal-overlay hidden" id="analyze-overlay" onclick="document.getElementById('analyze-overlay').classList.add('hidden')"></div>
+<div class="analyze-modal hidden" id="analyze-modal">
+  <div class="analyze-modal-header">
+    <span>📊 Process Analysis</span>
+    <button class="btn-icon" onclick="document.getElementById('analyze-modal').classList.add('hidden');document.getElementById('analyze-overlay').classList.add('hidden')" style="width:24px;height:24px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="analyze-modal-body" id="analyze-modal-body">Loading...</div>
+</div>
+
+<!-- ── GEMINI STUDIO AI WORKSPACE MODAL ─────────────────────────── -->
+<div class="gemini-studio-overlay hidden" id="gemini-studio-overlay"></div>
+<div class="gemini-studio-modal hidden" id="gemini-studio-modal">
+  <div class="gsm-header">
+    <div class="gsm-title">
+      <svg class="gsm-sparkle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <span>Gemini Studio — AI Workspace</span>
+      <span class="gsm-badge-premium">Advanced BA</span>
+    </div>
+    <button class="btn-icon" id="btn-close-gemini-studio" style="width:24px;height:24px;border:none">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="gsm-tabs">
+    <button class="gsm-tab active" data-tab="optimize" id="gsm-tab-optimize">
+      🪄 Tối ưu hóa cú pháp
+    </button>
+    <button class="gsm-tab" data-tab="exceptions" id="gsm-tab-exceptions">
+      ⚠️ Tìm kịch bản ngoại lệ / SLA
+    </button>
+    <button class="gsm-tab" data-tab="compliance" id="gsm-tab-compliance">
+      📋 Kiểm tra Logic BPMN
+    </button>
+  </div>
+
+  <div class="gsm-body">
+    <!-- TAB: Optimize -->
+    <div class="gsm-tab-content" id="gsm-content-optimize">
+      <div class="gsm-section-desc">
+        Tự động cấu trúc lại mô tả của bạn thành định dạng nghiêm ngặt của BPMN Studio (gán Actor hợp lý ở đầu dòng, gom rẽ nhánh thành cặp liên tiếp) để đảm bảo mô hình hóa sơ đồ chính xác nhất.
+      </div>
+      <div class="gsm-split-view">
+        <div class="gsm-pane">
+          <label class="gsm-pane-label">Original Description</label>
+          <textarea class="gsm-pane-textarea" id="gsm-opt-original" readonly></textarea>
+        </div>
+        <div class="gsm-pane">
+          <label class="gsm-pane-label">AI Optimized (Cú pháp BPMN Studio)</label>
+          <textarea class="gsm-pane-textarea gsm-pane-textarea--optimized" id="gsm-opt-optimized" placeholder="Bấm 'Chạy tối ưu hóa' để Gemini Studio xử lý..."></textarea>
+        </div>
+      </div>
+      <div class="gsm-action-bar">
+        <button class="btn btn-outline" id="btn-gsm-run-optimize">🪄 Chạy tối ưu hóa</button>
+        <button class="btn btn-success hidden" id="btn-gsm-apply-optimize">Áp dụng vào Editor ✓</button>
+      </div>
+    </div>
+
+    <!-- TAB: Exceptions -->
+    <div class="gsm-tab-content hidden" id="gsm-content-exceptions">
+      <div class="gsm-section-desc">
+        Tìm các điểm mù nghiệp vụ như: lỗi hệ thống, sự cố thanh toán, vượt quá thời gian cam kết (SLA Timeout). Gemini Studio sẽ viết sẵn cú pháp chuẩn để bạn có thể chèn thêm.
+      </div>
+      <div class="gsm-action-bar" style="margin-bottom:14px">
+        <button class="btn btn-outline" id="btn-gsm-run-exceptions">🔍 Tìm ngoại lệ &amp; SLA</button>
+      </div>
+      <div id="gsm-exceptions-results" class="gsm-results-list">
+        <div class="gsm-results-empty">Đang chờ phân tích...</div>
+      </div>
+    </div>
+
+    <!-- TAB: Compliance -->
+    <div class="gsm-tab-content hidden" id="gsm-content-compliance">
+      <div class="gsm-section-desc">
+        Kiểm định toàn diện chất lượng mô hình: phát hiện điểm nghẽn (deadlock), rẽ nhánh thiếu logic, thiếu kết thúc hoặc quy trình quá phức tạp so với thực tế.
+      </div>
+      <div class="gsm-action-bar" style="margin-bottom:14px">
+        <button class="btn btn-outline" id="btn-gsm-run-compliance">📊 Đánh giá logic</button>
+      </div>
+      <div id="gsm-compliance-results" class="gsm-compliance-view">
+        <div class="gsm-results-empty">Đang chờ phân tích...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="gsm-loading hidden" id="gsm-loading">
+    <div class="gsm-loading-spinner"></div>
+    <div class="gsm-loading-text">Gemini Studio đang xử lý...</div>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ──────────────────────────────────────────────────── -->
+<script src="https://unpkg.com/bpmn-js@18.14.0/dist/bpmn-modeler.production.min.js"></script>
+<script src="bpmn-engine.js"></script>
+<script src="ba-tools.js"></script>
+<script src="designer.js"></script>
+
+<!-- ── FORMAT GUIDE MODAL ─────────────────────────────────────── -->
+<div class="format-guide-overlay hidden" id="format-guide-overlay"></div>
+<div class="format-guide-modal hidden" id="format-guide-modal">
+  <div class="fgm-header">
+    <div class="fgm-title">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Định dạng chuẩn để Paste vào hệ thống
+    </div>
+    <button class="btn-icon" id="btn-close-format-guide" style="width:24px;height:24px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1 1 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="fgm-body">
+    <div class="fgm-section">
+      <div class="fgm-section-title">📌 Quy tắc định dạng</div>
+      <div class="fgm-rules">
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>1. Khách hàng: Đặt hàng trên website</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>2. Hệ thống: Kiểm tra đơn hàng tự động</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>3. Nếu đơn hàng hợp lệ: Nhân viên kho: Đóng gói</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--ok">✓ Đúng</span>
+          <code>4. Nếu hết hàng: Hệ thống: Gửi email hủy đơn</code>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--warn">⚠ Tránh</span>
+          <code>Sau đó, khách hàng sẽ xác nhận đơn hàng...</code>
+          <span class="fgm-rule-note">Câu dài, không có số thứ tự</span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--warn">⚠ Tránh</span>
+          <code>Nếu hàng hết: gửi thông báo cho khách</code>
+          <span class="fgm-rule-note">Thiếu actor sau dấu ":"</span>
+        </div>
+      </div>
+    </div>
+    <div class="fgm-section">
+      <div class="fgm-section-title">🔤 Danh sách Actor được nhận diện</div>
+      <div class="fgm-actor-grid">
+        <span class="fgm-actor-chip">Khách hàng</span>
+        <span class="fgm-actor-chip">Hệ thống</span>
+        <span class="fgm-actor-chip">Quản lý</span>
+        <span class="fgm-actor-chip">Nhân viên</span>
+        <span class="fgm-actor-chip">Nhân viên kho</span>
+        <span class="fgm-actor-chip">Kế toán</span>
+        <span class="fgm-actor-chip">HR</span>
+        <span class="fgm-actor-chip">Giám đốc</span>
+        <span class="fgm-actor-chip">Shipper</span>
+        <span class="fgm-actor-chip">Dược sĩ</span>
+        <span class="fgm-actor-chip">Bác sĩ</span>
+        <span class="fgm-actor-chip">Ngân hàng</span>
+        <span class="fgm-actor-chip">Nhà cung cấp</span>
+        <span class="fgm-actor-chip">Bộ phận tiếp nhận</span>
+        <span class="fgm-actor-chip">Sales</span>
+        <span class="fgm-actor-chip">Marketing</span>
+        <span class="fgm-actor-chip">IT Support</span>
+        <span class="fgm-actor-chip">Kho</span>
+        <span class="fgm-actor-chip fgm-actor-chip--hint">+ Bất kỳ vai trò nào khác</span>
+      </div>
+    </div>
+    <div class="fgm-section">
+      <div class="fgm-section-title">🔁 Điều kiện (Gateway)</div>
+      <p class="fgm-desc">Bắt đầu dòng bằng <strong>"Nếu [điều kiện]:"</strong> — hệ thống sẽ tự tạo Exclusive Gateway.</p>
+      <div class="fgm-example-block">
+        <div class="fgm-example-line"><span class="fgm-lnum">3.</span> Nếu số ngày &gt; 3: HR: Xem xét và phê duyệt thêm</div>
+        <div class="fgm-example-line fgm-example-line--branch"><span class="fgm-lnum">4.</span> Nếu không đủ ngày phép: Hệ thống: Gửi thông báo từ chối</div>
+      </div>
+    </div>
+    <div class="fgm-section">
+      <div class="fgm-section-title">⏱ Event Types — Đầy đủ từ Camunda BPMN 2.0</div>
+      <p class="fgm-desc">Bắt đầu dòng với từ khóa đặc biệt để tạo các loại event chính xác:</p>
+      <div class="fgm-rules">
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">⏱ Timer</span>
+          <code>Chờ [thời gian]:</code> hoặc <code>Chờ đến [ngày/giờ]:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>10. Chờ 30 phút: (đợi thanh toán)</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">📨 Message Catch</span>
+          <code>Chờ [sự kiện] từ [bên khác]:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>5. Chờ xác nhận thanh toán từ ngân hàng:</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">📤 Gửi / Signal Throw</span>
+          <code>Gửi thông báo: [Chi tiết]</code> hoặc <code>Gửi tín hiệu:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>12. Gửi thông báo: Cập nhật trạng thái đơn hàng cho tất cả hệ thống</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">🚨 Escalation Throw</span>
+          <code>Leo thang: [Chi tiết]</code> hoặc <code>Nâng cấp lên: [Người/Nhóm]</code> hoặc <code>Escalate:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>6. Leo thang: Chuyển tới Supervisor xử lý</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">❌ Error End</span>
+          <code>Báo lỗi: [Mô tả]</code> hoặc <code>Kết thúc lỗi:</code> hoặc <code>Throw error:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>8. Báo lỗi: Thanh toán thất bại — hủy đơn</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">↺ Compensation</span>
+          <code>Hoàn tác: [Mô tả]</code> hoặc <code>Rollback:</code> hoặc <code>Compensate:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>9. Hoàn tác: Hoàn tiền cho khách hàng</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">📃 Conditional Catch</span>
+          <code>Khi điều kiện [mô tả]:</code> hoặc <code>Khi dữ liệu thay đổi:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>7. Khi điều kiện phân xét hoàn tất:</em></span>
+        </div>
+        <div class="fgm-rule">
+          <span class="fgm-rule-badge fgm-rule-badge--event">🔗 Link</span>
+          <code>Link đến: [bước/nhãn]</code> hoặc <code>Nhảy đến bước [số]:</code>
+          <span class="fgm-rule-note">Ví dụ: <em>15. Link đến: Bước kiểm tra lại</em></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  /* ── FORMAT GUIDE MODAL ── */
+  document.getElementById('btn-close-format-guide')?.addEventListener('click', function() {
+    document.getElementById('format-guide-modal').classList.add('hidden');
+    document.getElementById('format-guide-overlay').classList.add('hidden');
+  });
+  document.getElementById('format-guide-overlay')?.addEventListener('click', function() {
+    document.getElementById('format-guide-modal').classList.add('hidden');
+    document.getElementById('format-guide-overlay').classList.add('hidden');
+  });
+  function openFormatGuide() {
+    document.getElementById('format-guide-modal').classList.remove('hidden');
+    document.getElementById('format-guide-overlay').classList.remove('hidden');
+  }
+
+  /* ── COPY AI PROMPT ── */
+  document.getElementById('btn-copy-ai-prompt')?.addEventListener('click', function() {
+    const processDesc = document.getElementById('process-desc')?.value?.trim() || '';
+    const hasDesc = processDesc.length > 10;
+    
+    const promptText = `Bạn là một Business Analyst chuyên về BPMN 2.0 (Camunda).
+${hasDesc
+  ? `Tôi có nghiệp vụ sau đây:\n\n"${processDesc}"\n\nHãy chuẩn hóa lại thành các bước BPMN đầy đủ, bao gồm event, gateway, exception và điều kiện chờ đợi.`
+  : `Tôi sẽ mô tả một nghiệp vụ. Hãy chuẩn hóa thành các bước BPMN đầy đủ.\n\n"[DÁN MÔ TẢ NGHIỆP VỤ CỦA BẠN VÀO ĐÂY]"`
+}
+
+═══════════════════════════════════════════════════════════════════
+
+ĐỊNH DẠNG CHUẨN — TUÂN THỦ 100%:
+
+1️⃣  TASK THÔNG THƯỜNG:
+    Số. Vai trò: Hành động (Động từ + Tân ngữ)
+    Ví dụ: 1. Khách hàng: Đặt hàng trên website
+    Ví dụ: 2. Hệ thống: Kiểm tra tồn kho tự động
+
+2️⃣  ĐIỀU KIỆN RẼ NHÁNH XOR (chỉ đi 1 nhánh):
+    Số. Nếu [Điều kiện A]: Vai trò: Hành động
+    Số. Nếu [Điều kiện B]: Vai trò: Hành động
+    → PHẢI có đúng 2 dòng "Nếu" liên tiếp thành 1 cặp XOR.
+    Ví dụ: 5. Nếu còn hàng: Nhân viên kho: Chuẩn bị hàng
+    Ví dụ: 6. Nếu hết hàng: Hệ thống: Gửi email hủy đơn
+
+3️⃣  SONG SONG AND (nhiều task chạy cùng lúc):
+    Số. Đồng thời: Vai trò: Hành động
+    → Mỗi task song song = 1 dòng "Đồng thời:" riêng.
+    Ví dụ: 8. Đồng thời: Nhân viên kho: Đóng gói hàng
+    Ví dụ: 9. Đồng thời: Kế toán: Tạo phiếu vận chuyển
+
+4️⃣  CHỜ ĐỢI / TIMER (Intermediate Timer Event ⏱):
+    Số. Chờ [thời gian]:
+    → Dùng khi process phải chờ một khoảng thời gian cố định.
+    Ví dụ: 10. Chờ 30 phút:
+    Ví dụ: 11. Chờ 2 giờ:
+    Ví dụ: 12. Chờ 3 ngày:
+
+5️⃣  CHỜ SỰ KIỆN TỪ BÊN NGOÀI (Intermediate Message Catch Event 📨):
+    Số. Chờ [sự kiện] từ [bên ngoài]:
+    → Dùng khi process chờ phản hồi/callback từ hệ thống/người khác.
+    Ví dụ: 13. Chờ xác nhận thanh toán từ ngân hàng:
+    Ví dụ: 14. Chờ phê duyệt từ quản lý:
+    Ví dụ: 15. Chờ phản hồi từ nhà cung cấp:
+
+6️⃣  BROADCAST / GỬI THÔNG BÁO (Intermediate Signal Throw Event 📤):
+    Số. Gửi thông báo: [Chi tiết]
+    → Dùng khi cần phát tín hiệu ra cho nhiều nơi, không chờ phản hồi.
+    Ví dụ: 16. Gửi thông báo: Cập nhật trạng thái đơn hàng cho tất cả hệ thống
+
+7️⃣  LỖI / NGOẠI LỆ (Error/Exception Flow ❌):
+    Số. Nếu lỗi [mô tả]: Vai trò: Hành động xử lý
+    Ví dụ: 17. Nếu lỗi thanh toán: Kế toán: Thử lại hoặc liên hệ nhà cung cấp
+    Ví dụ: 18. Nếu lỗi hệ thống: Hệ thống: Ghi log và thông báo admin
+
+8️⃣  VƯỢT TIMEOUT / SLA (Timer Boundary / Escalation ⏰):
+    Số. Nếu sau [thời gian] chưa [hành động]: Vai trò: Hành động khẩn cấp
+    Ví dụ: 19. Nếu sau 4 giờ chưa phê duyệt: Supervisor: Nâng cấp ticket
+
+═══════════════════════════════════════════════════════════════════
+
+QUY TẮC BẮT BUỘC:
+
+✓ Mỗi dòng = 1 bước duy nhất. KHÔNG gộp nhiều hành động.
+✓ Tên task = Động từ + Tân ngữ (Ví dụ: "Kiểm tra tồn kho", KHÔNG phải "Tồn kho").
+✓ Vai trò tối đa 4 từ: Khách hàng, Hệ thống, Quản lý, HR, Kế toán, Nhân viên kho, Shipper...
+✓ XOR: luôn có đúng 2 dòng "Nếu A" + "Nếu B" liên tiếp.
+✓ AND: mỗi task song song = 1 dòng "Đồng thời:" riêng (không gộp).
+✓ Timer: "Chờ X phút/giờ/ngày:" (không cần actor, hệ thống tự xử lý).
+✓ Message catch: "Chờ [sự kiện] từ [party]:" (không cần actor).
+✓ Không dùng markdown, không in đậm, không in nghiêng.
+✓ Không thêm tiêu đề, chú thích, giải thích ngoài danh sách.
+
+═══════════════════════════════════════════════════════════════════
+
+VÍ DỤ ĐẦU RA CHUẨN (có đủ loại event):
+
+1. Khách hàng: Đặt hàng trên website
+2. Hệ thống: Gửi email xác nhận đơn hàng
+3. Chờ 30 phút:
+4. Nếu thanh toán nhận được: Hệ thống: Cập nhật trạng thái thành "Đã thanh toán"
+5. Nếu chưa thanh toán sau 30 phút: Hệ thống: Gửi nhắc nhở thanh toán
+6. Chờ xác nhận thanh toán từ ngân hàng:
+7. Nếu thanh toán thành công: Nhân viên kho: Kiểm tra kho
+8. Nếu thanh toán thất bại: Hệ thống: Hủy đơn hàng tự động
+9. Nếu còn hàng: Nhân viên kho: Chuẩn bị hàng
+10. Nếu hết hàng: Hệ thống: Gửi email thông báo hết hàng
+11. Đồng thời: Nhân viên kho: Đóng gói hàng
+12. Đồng thời: Kế toán: Tạo phiếu vận chuyển
+13. Nếu lỗi đóng gói: Nhân viên kho: Báo cáo lỗi và xử lý thủ công
+14. Shipper: Lấy hàng từ kho
+15. Nếu sau 4 giờ chưa lấy hàng: Quản lý: Liên hệ đối tác vận chuyển khác
+16. Shipper: Giao hàng cho khách
+17. Khách hàng: Nhận hàng và xác nhận
+18. Gửi thông báo: Cập nhật trạng thái đơn thành "Hoàn thành" cho tất cả hệ thống
+
+═══════════════════════════════════════════════════════════════════
+
+Bây giờ hãy xuất ra danh sách các bước BPMN hoàn chỉnh theo định dạng trên:`;
+
+    navigator.clipboard.writeText(promptText).then(() => {
+      const btn = this;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5l-7 7-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Đã Copy!`;
+      btn.style.background = 'rgba(16, 185, 129, 0.15)';
+      btn.style.color = '#059669';
+      btn.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.style.background = 'rgba(59, 130, 246, 0.1)';
+        btn.style.color = '#3b82f6';
+        btn.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+      }, 2500);
+    }).catch(err => {
+      console.error('Lỗi khi copy', err);
+      alert('Trình duyệt của bạn không hỗ trợ copy tự động.');
+    });
+  });
+</script>
+
+
+
+<script>
+/* ── LIVE PARSE PREVIEW (Step 1) ────────────────────────── */
+(function() {
+  let previewDebounce = null;
+
+  function getLivePreview(desc) {
+    if (!desc || desc.trim().length < 5) return [];
+    // Use the main parseFallback — wait until it's available
+    if (typeof parseFallback !== 'function') return [];
+    return parseFallback('preview', desc).slice(0, 8);
+  }
+
+  function actorClass(actor, isCond) {
+    if (isCond) return 'ppe-actor ppe-actor--cond';
+    if (/h[eệ]\s*th[oố]ng|system/i.test(actor)) return 'ppe-actor ppe-actor--sys';
+    return 'ppe-actor';
+  }
+
+  const TYPE_EMOJI = {
+    userTask: '👤', serviceTask: '⚙️', sendTask: '📤',
+    receiveTask: '📥', scriptTask: '📜', businessRuleTask: '📋',
+    manualTask: '🖐', task: '□'
+  };
+
+  function renderPreview(desc) {
+    const group  = document.getElementById('parse-preview-group');
+    const list   = document.getElementById('ppe-list');
+    const badge  = document.getElementById('ppe-badge');
+    if (!group || !list || !badge) return;
+
+    if (!desc || desc.trim().length < 5) {
+      group.style.display = 'none';
+      return;
+    }
+    group.style.display = '';
+
+    const steps = getLivePreview(desc);
+    if (steps.length === 0) {
+      list.innerHTML = '<div class="ppe-empty">Không thể phân tích. Hãy thêm định dạng "Actor: Hành động" vào mô tả.</div>';
+      badge.className = 'ppe-badge ppe-badge--warn';
+      badge.textContent = 'Not recognized yet';
+      return;
+    }
+
+    const hasCond    = steps.some(s => s.condition);
+    const uniqueActors = [...new Set(steps.map(s => s.actor))];
+    const goodFormat   = uniqueActors.length >= 2 && hasCond;
+
+    badge.className  = goodFormat ? 'ppe-badge ppe-badge--ok' : 'ppe-badge ppe-badge--warn';
+    badge.textContent = goodFormat
+      ? steps.length + ' bước · ' + uniqueActors.length + ' actor · có Gateway'
+      : steps.length + ' bước · ' + uniqueActors.length + ' actor';
+
+    list.innerHTML = steps.map((s, i) => {
+      const cls   = actorClass(s.actor, !!s.condition);
+      const emoji = TYPE_EMOJI[s.type] || '□';
+      const prefix = s.condition
+        ? '<span style="color:var(--warning);font-size:0.65rem;font-weight:700">GW→</span> '
+        : '';
+      return `<div class="ppe-row">
+        <span class="ppe-row-num">${i+1}</span>
+        <span class="${cls}">${escHtmlPreview(s.actor)}</span>
+        <span class="ppe-action">${prefix}${escHtmlPreview(s.action)}</span>
+        <span class="ppe-type">${emoji}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function escHtmlPreview(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  const descEl = document.getElementById('process-desc');
+  if (descEl) {
+    descEl.addEventListener('input', function() {
+      clearTimeout(previewDebounce);
+      previewDebounce = setTimeout(() => renderPreview(this.value), 350);
+    });
+  }
+
+  // Also re-render when example chips are clicked
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.chip')) {
+      setTimeout(() => {
+        const v = document.getElementById('process-desc')?.value || '';
+        renderPreview(v);
+      }, 80);
+    }
+  });
+})();
+</script>
 </body>
 </html>

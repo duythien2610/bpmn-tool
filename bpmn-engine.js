@@ -336,16 +336,17 @@ const BpmnEngine = (() => {
         const srcNode=srcId?nodes.find(nd=>nd&&nd.id===srcId):null;
         const isGWSrc=srcNode&&srcNode.type&&srcNode.type.includes('Gateway');
 
+        const ry = rejY + 22; // aligns center of 36x36 circle with center of 100x80 task (both centers at rejY + 40)
         if (rp && isGWSrc) {
           // Direct from GW (single conditional) → ABOVE gateway, same cx
           const ex=Math.round(rp.cx-w/2);
-          pos[n.id]={x:ex,y:rejY,w,h,cx:Math.round(rp.cx),cy:rejY+Math.round(h/2)};
+          pos[n.id]={x:ex,y:ry,w,h,cx:Math.round(rp.cx),cy:ry+Math.round(h/2)};
         } else if (rp) {
           // After reject task → to the RIGHT of reject task (same above row)
           const ex=rp.x+rp.w+32;
-          pos[n.id]={x:ex,y:rejY,w,h,cx:ex+Math.round(w/2),cy:rejY+Math.round(h/2)};
+          pos[n.id]={x:ex,y:ry,w,h,cx:ex+Math.round(w/2),cy:ry+Math.round(h/2)};
         } else {
-          pos[n.id]={x:cx+w+GAP,y:rejY,w,h,cx:cx+w+GAP+Math.round(w/2),cy:rejY+Math.round(h/2)};
+          pos[n.id]={x:cx+w+GAP,y:ry,w,h,cx:cx+w+GAP+Math.round(w/2),cy:ry+Math.round(h/2)};
         }
       }
     });

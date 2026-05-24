@@ -1606,7 +1606,8 @@ function parseFallback(title, desc) {
     let actor  = null;
     let action = bodyText;
 
-    const isIntermediateEvent = isTimerCatch || isMsgCatch || isSigThrow;
+    const isIntermediateEvent = isTimerCatch || isMsgCatch || isSigThrow ||
+      isEscalation || isErrThrow || isCompensation || isConditional || isLink;
 
     if (bodyText && !isIntermediateEvent) {
       // Match "Actor: Action" where actor is short (<=4 words), no commas
@@ -1644,8 +1645,6 @@ function parseFallback(title, desc) {
     /* 5E. INFER TASK TYPE */
     let type = 'task';
     // Intermediate events take priority
-    const isIntermediateEvent = isTimerCatch || isMsgCatch || isSigThrow ||
-      isEscalation || isErrThrow || isCompensation || isConditional || isLink;
 
     if (isTimerCatch) {
       type = 'intermediateCatchEvent';

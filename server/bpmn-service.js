@@ -461,36 +461,40 @@ function assignPositions(nodes, flows, actors, isSoloLane) {
 }
 
 function edgeWaypoints(sourcePos, targetPos, sourceNode, targetNode) {
+  const srcGW = sourceNode && sourceNode.type && sourceNode.type.includes('Gateway');
   if (!sourcePos || !targetPos) return [[0, 0], [100, 0]];
-  const sameLane = Math.abs(sourcePos.cy - targetPos.cy) <= 5;
-  const sourceIsGateway = sourceNode.type.includes('Gateway');
+  const sy = sourcePos.cy, ty = targetPos.cy, diff = ty - sy;
 
-  if (targetNode.isReject && sourceIsGateway) {
-    return [[sourcePos.cx, sourcePos.y + sourcePos.h], [sourcePos.cx, targetPos.y]];
+  // Gateway → reject node ABOVE: exit TOP → straight UP → enter BOTTOM of target
+  if (targetNode && targetNode.isReject && srcGW) {
+    return [[sourcePos.cx, sourcePos.y], [targetPos.cx, targetPos.y + targetPos.h]];
   }
-
-  if (targetNode.isReject && !sourceIsGateway) {
+  // Reject task → reject end (above row): exit RIGHT → horizontal → enter LEFT
+  if (targetNode && targetNode.isReject && !srcGW) {
     return [[sourcePos.x + sourcePos.w, sourcePos.cy], [targetPos.x, targetPos.cy]];
   }
 
-  if (sameLane) {
-    return [[sourcePos.x + sourcePos.w, sourcePos.cy], [targetPos.x, targetPos.cy]];
-  }
+  // Same lane (horizontal, diff ≤ 8px tolerance): exit RIGHT → enter LEFT
+  if (Math.abs(diff) <= 8) return [[sourcePos.x + sourcePos.w, sy], [targetPos.x, ty]];
 
-  if (sourceIsGateway) {
-    if (targetPos.cy > sourcePos.cy) {
-      return [[sourcePos.cx, sourcePos.y + sourcePos.h], [sourcePos.cx, targetPos.cy], [targetPos.x, targetPos.cy]];
+  // Gateway → different lane: use CORRIDOR just to the right of the gateway
+  // so the vertical segment never overlaps other horizontal nodes
+  if (srcGW) {
+    // Corridor X = gateway right-edge + 45px padding (clears reject tasks), capped at target x - 20
+    const corridorX = Math.min(sourcePos.x + sourcePos.w + 45, targetPos.x - 20);
+    if (diff > 0) {
+      // Going down: exit bottom-center → short right → down → into target left
+      return [[sourcePos.cx, sourcePos.y + sourcePos.h], [sourcePos.cx, sourcePos.y + sourcePos.h + 18], [corridorX, sourcePos.y + sourcePos.h + 18], [corridorX, ty], [targetPos.x, ty]];
+    } else {
+      // Going up: exit top-center → short right → up → into target left
+      return [[sourcePos.cx, sourcePos.y], [sourcePos.cx, sourcePos.y - 18], [corridorX, sourcePos.y - 18], [corridorX, ty], [targetPos.x, ty]];
     }
-    return [[sourcePos.cx, sourcePos.y], [sourcePos.cx, targetPos.cy], [targetPos.x, targetPos.cy]];
   }
 
-  const midX = Math.round((sourcePos.x + sourcePos.w + targetPos.x) / 2);
-  return [
-    [sourcePos.x + sourcePos.w, sourcePos.cy],
-    [midX, sourcePos.cy],
-    [midX, targetPos.cy],
-    [targetPos.x, targetPos.cy]
-  ];
+  // General cross-lane (task → task): exit RIGHT → corridor just before target → vertical → enter LEFT
+  // Corridor placed 45px before the target (clears reject tasks) to avoid cutting through elements
+  const corridorX = targetPos.x - 45;
+  return [[sourcePos.x + sourcePos.w, sy], [corridorX, sy], [corridorX, ty], [targetPos.x, ty]];
 }
 
 function buildBpmnDi(nodes, flows, actors) {
@@ -539,15 +543,24 @@ function buildBpmnDi(nodes, flows, actors) {
 
     let label = '';
     if (flow.name) {
-      const labelWidth = Math.min(Math.max(flow.name.length * 7, 40), 120);
-      const isVertical = points.length === 2 && Math.abs(points[0][0] - points[1][0]) <= 2;
-      const labelX = isVertical
-        ? points[0][0] - labelWidth - 6
-        : Math.round((points[0][0] + points[1][0]) / 2) - Math.round(labelWidth / 2);
-      const labelY = isVertical
-        ? Math.round((points[0][1] + points[1][1]) / 2) - 7
-        : Math.min(points[0][1], points[1][1]) - 18;
-      label = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${labelX}" y="${labelY}" width="${labelWidth}" height="14" />\n        </bpmndi:BPMNLabel>`;
+      // Capped label width: max 135px to trigger beautiful auto-wrapping and save space
+      const labelWidth = Math.min(Math.max(flow.name.length * 8, 48), 135);
+      // Height: up to 3 lines (42px) for long wrapped Vietnamese labels
+      const labelHeight = flow.name.length > 20 ? 42 : flow.name.length > 10 ? 28 : 14;
+      const isVertical = points.length >= 2 && Math.abs(points[0][0] - points[1][0]) <= 4;
+      let labelX, labelY;
+      if (isVertical) {
+        // Vertical flow (reject path): label to the RIGHT of the line — avoids overlap with nodes above
+        labelX = points[0][0] + 6;
+        // Shift vertical flow label up/down by 25px along the vertical line to prevent horizontal flow label overlap
+        const shift = (points[1][1] < points[0][1]) ? -25 : 25;
+        labelY = Math.round((points[0][1] + points[1][1]) / 2) - Math.round(labelHeight / 2) + shift;
+      } else {
+        // Horizontal/angled: label ABOVE the midpoint of first segment
+        labelX = Math.round((points[0][0] + points[1][0]) / 2) - Math.round(labelWidth / 2);
+        labelY = Math.min(points[0][1], points[1][1]) - labelHeight - 5;
+      }
+      label = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}" />\n        </bpmndi:BPMNLabel>`;
     }
 
     edges += `      <bpmndi:BPMNEdge id="${flow.id}_di" bpmnElement="${flow.id}">\n${waypointXml}${label}\n      </bpmndi:BPMNEdge>\n`;

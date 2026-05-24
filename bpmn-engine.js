@@ -388,8 +388,8 @@ const BpmnEngine = (() => {
     // Gateway → different lane: use CORRIDOR just to the right of the gateway
     // so the vertical segment never overlaps other horizontal nodes
     if (srcGW) {
-      // Corridor X = gateway right-edge + 20px padding, capped at target x - 20
-      const corridorX = Math.min(sp.x + sp.w + 20, tp.x - 20);
+      // Corridor X = gateway right-edge + 45px padding (clears reject tasks), capped at target x - 20
+      const corridorX = Math.min(sp.x + sp.w + 45, tp.x - 20);
       if (diff>0) {
         // Going down: exit bottom-center → short right → down → into target left
         return [[sp.cx, sp.y+sp.h], [sp.cx, sp.y+sp.h+18], [corridorX, sp.y+sp.h+18], [corridorX, ty], [tp.x, ty]];
@@ -400,8 +400,8 @@ const BpmnEngine = (() => {
     }
 
     // General cross-lane (task → task): exit RIGHT → corridor just before target → vertical → enter LEFT
-    // Corridor placed 28px before the target to avoid cutting through elements
-    const corridorX = tp.x - 28;
+    // Corridor placed 45px before the target (clears reject tasks) to avoid cutting through elements
+    const corridorX = tp.x - 45;
     return [[sp.x+sp.w, sy], [corridorX, sy], [corridorX, ty], [tp.x, ty]];
   }
 
@@ -529,15 +529,17 @@ const BpmnEngine = (() => {
       if (f.name) {
         // Detect vertical segment: first two waypoints share near-same X
         const isVertical = wps.length>=2 && Math.abs(wps[0][0]-wps[1][0])<=4;
-        // Wider label width: 8px/char (better for Vietnamese), min 48, max 200
-        const lblW = Math.min(Math.max(f.name.length*8, 48), 200);
-        // Height: 2 lines for longer labels
-        const lblH = f.name.length > 16 ? 28 : 14;
+        // Capped label width: max 135px to trigger beautiful auto-wrapping and save space
+        const lblW = Math.min(Math.max(f.name.length*8, 48), 135);
+        // Height: up to 3 lines (42px) for long wrapped Vietnamese labels
+        const lblH = f.name.length > 20 ? 42 : f.name.length > 10 ? 28 : 14;
         let lx, ly;
         if (isVertical) {
           // Vertical flow (reject path): label to the RIGHT of the line — avoids overlap with nodes above
           lx = wps[0][0] + 6;
-          ly = Math.round((wps[0][1]+wps[1][1])/2) - Math.round(lblH/2);
+          // Shift vertical flow label up/down by 25px along the vertical line to prevent horizontal flow label overlap
+          const shift = (wps[1][1] < wps[0][1]) ? -25 : 25;
+          ly = Math.round((wps[0][1]+wps[1][1])/2) - Math.round(lblH/2) + shift;
         } else {
           // Horizontal/angled: label ABOVE the midpoint of first segment
           const midX = Math.round((wps[0][0]+wps[1][0])/2);

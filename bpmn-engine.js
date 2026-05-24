@@ -35,7 +35,7 @@ const BpmnEngine = (() => {
   const sz = t => { const v=SZ[t]||'100,80'; const [w,h]=v.split(',').map(Number); return {w,h}; };
 
   const POOL_X=100, POOL_LBL=30, LANE_LBL=30;
-  const LANE_H=160, LANE_SOLO=120, TOP_Y=60, GAP=90, REJ_DY=100;
+  const LANE_H=190, LANE_SOLO=150, TOP_Y=60, GAP=110, REJ_DY=110;
 
   const TMAP={
     task:'task',usertask:'userTask',servicetask:'serviceTask',sendtask:'sendTask',
@@ -209,7 +209,7 @@ const BpmnEngine = (() => {
 
   function assignPos(nodes, flows, actors, solo) {
     const baseLH=solo?LANE_SOLO:LANE_H;
-    const REJ_ABOVE=90; // extra space at TOP of lane for above-gateway reject row
+    const REJ_ABOVE=105; // extra space at TOP of lane for above-gateway reject row
     const x0=POOL_X+POOL_LBL+(solo?0:LANE_LBL)+GAP;
     let cx=x0, brMaxX=0;
     const pos={};
@@ -283,7 +283,7 @@ const BpmnEngine = (() => {
         const ex=cx+w/2;
         let targetCenterY = lMid;
         if (n.totalBranchesInLane > 1) {
-          const spacing = 90;
+          const spacing = 105; // enough gap between parallel tasks (task h=80, so 25px clear)
           const offset = (n.branchIdxInLane - (n.totalBranchesInLane - 1) / 2) * spacing;
           targetCenterY = lMid + offset;
         }
@@ -309,8 +309,8 @@ const BpmnEngine = (() => {
       const actor=n.actor||actors[0]||'';
       const lTop=lt[actor]??TOP_Y;
 
-      // reject row: ABOVE main flow, near top of lane
-      const rejY = lTop + 12;
+      // reject row: ABOVE main flow — add enough padding so it sits clearly inside lane boundary
+      const rejY = lTop + 22;
 
       if (n.type!=='endEvent') {
         // Reject TASK — directly ABOVE its gateway (same cx)
@@ -373,23 +373,27 @@ const BpmnEngine = (() => {
       return [[sp.x+sp.w, sp.cy], [tp.x, tp.cy]];
     }
 
-    // Same lane (horizontal): exit RIGHT → enter LEFT
-    if (Math.abs(diff)<=5) return [[sp.x+sp.w, sy], [tp.x, ty]];
+    // Same lane (horizontal, diff ≤ 8px tolerance): exit RIGHT → enter LEFT
+    if (Math.abs(diff)<=8) return [[sp.x+sp.w, sy], [tp.x, ty]];
 
-    // Gateway → different lane: exit BOTTOM or TOP → go vertical → then horizontal to target LEFT
+    // Gateway → different lane: use CORRIDOR just to the right of the gateway
+    // so the vertical segment never overlaps other horizontal nodes
     if (srcGW) {
+      // Corridor X = gateway right-edge + 20px padding, capped at target x - 20
+      const corridorX = Math.min(sp.x + sp.w + 20, tp.x - 20);
       if (diff>0) {
-        // Going down: exit bottom → down to target row → right to target
-        return [[sp.cx, sp.y+sp.h], [sp.cx, ty], [tp.x, ty]];
+        // Going down: exit bottom-center → short right → down → into target left
+        return [[sp.cx, sp.y+sp.h], [sp.cx, sp.y+sp.h+18], [corridorX, sp.y+sp.h+18], [corridorX, ty], [tp.x, ty]];
       } else {
-        // Going up: exit top → up to target row → right to target
-        return [[sp.cx, sp.y], [sp.cx, ty], [tp.x, ty]];
+        // Going up: exit top-center → short right → up → into target left
+        return [[sp.cx, sp.y], [sp.cx, sp.y-18], [corridorX, sp.y-18], [corridorX, ty], [tp.x, ty]];
       }
     }
 
-    // General cross-lane: exit RIGHT → midpoint → turn vertical → enter LEFT
-    const mx=Math.round((sp.x+sp.w+tp.x)/2);
-    return [[sp.x+sp.w, sy], [mx, sy], [mx, ty], [tp.x, ty]];
+    // General cross-lane (task → task): exit RIGHT → corridor just before target → vertical → enter LEFT
+    // Corridor placed 28px before the target to avoid cutting through elements
+    const corridorX = tp.x - 28;
+    return [[sp.x+sp.w, sy], [corridorX, sy], [corridorX, ty], [tp.x, ty]];
   }
 
 
@@ -489,14 +493,14 @@ const BpmnEngine = (() => {
       let lbl='';
       if(n.name){
         if(isEv){
-          // Dynamic width for event labels (circles: 36x36)
-          const evLblW = Math.min(Math.max(n.name.length*6, 48), 140);
+          // Dynamic width for event labels — 8px/char for Vietnamese, min 52, max 160
+          const evLblW = Math.min(Math.max(n.name.length*8, 52), 160);
           const evLblX = p.x - Math.round((evLblW - p.w)/2);
-          lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${evLblX}" y="${p.y+p.h+4}" width="${evLblW}" height="28" /></bpmndi:BPMNLabel>`;
+          lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${evLblX}" y="${p.y+p.h+5}" width="${evLblW}" height="28" /></bpmndi:BPMNLabel>`;
         } else if(isGW){
-          // Dynamic width + height for gateway labels — allow 2 lines for long text
-          const gwLblW = Math.min(Math.max(n.name.length*7, 80), 220);
-          const gwLblH = n.name.length > 20 ? 40 : 28;
+          // Gateway labels: 8px/char, allow 3 lines for long text
+          const gwLblW = Math.min(Math.max(n.name.length*8, 90), 240);
+          const gwLblH = n.name.length > 24 ? 42 : n.name.length > 14 ? 28 : 20;
           const gwLblX = p.x - Math.round((gwLblW - p.w)/2);
           lbl=`\n      <bpmndi:BPMNLabel><dc:Bounds x="${gwLblX}" y="${p.y+p.h+5}" width="${gwLblW}" height="${gwLblH}" /></bpmndi:BPMNLabel>`;
         }
@@ -514,22 +518,23 @@ const BpmnEngine = (() => {
       const wxml=wps.map(([x,y])=>`      <di:waypoint x="${x}" y="${y}" />`).join('\n');
       let lbl='';
       if (f.name) {
-        const isVertical = wps.length===2 && Math.abs(wps[0][0]-wps[1][0])<=2;
-        // Dynamic width based on label length — no hard cap so text fits
-        const lblW = Math.min(Math.max(f.name.length*7, 40), 180);
-        // Height: 1 line if short, 2 lines if long
-        const lblH = f.name.length > 18 ? 28 : 14;
+        // Detect vertical segment: first two waypoints share near-same X
+        const isVertical = wps.length>=2 && Math.abs(wps[0][0]-wps[1][0])<=4;
+        // Wider label width: 8px/char (better for Vietnamese), min 48, max 200
+        const lblW = Math.min(Math.max(f.name.length*8, 48), 200);
+        // Height: 2 lines for longer labels
+        const lblH = f.name.length > 16 ? 28 : 14;
         let lx, ly;
         if (isVertical) {
-          // Vertical flow (reject path): label to the LEFT of the line with enough space
-          lx = wps[0][0] - lblW - 8;
+          // Vertical flow (reject path): label to the RIGHT of the line — avoids overlap with nodes above
+          lx = wps[0][0] + 6;
           ly = Math.round((wps[0][1]+wps[1][1])/2) - Math.round(lblH/2);
         } else {
           // Horizontal/angled: label ABOVE the midpoint of first segment
           const midX = Math.round((wps[0][0]+wps[1][0])/2);
           const midY = Math.min(wps[0][1], wps[1][1]);
           lx = midX - Math.round(lblW/2);
-          ly = midY - lblH - 4;
+          ly = midY - lblH - 5;
         }
         lbl = `\n      <bpmndi:BPMNLabel><dc:Bounds x="${lx}" y="${ly}" width="${lblW}" height="${lblH}" /></bpmndi:BPMNLabel>`;
       }
